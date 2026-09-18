@@ -35,6 +35,6 @@ Singleton {
         id: inhibitor
 
         running: false
-        command: ["systemd-inhibit", "--what=idle:sleep", "--who=Caelestia Forge", "--why=Idle inhibitor widget", "--mode=block", "sleep", "infinity"]
+        command: ["systemd-inhibit", "--what=idle:sleep", "--who=Hyprforge", "--why=Idle inhibitor widget", "--mode=block", "sleep", "infinity"]
     }
 }

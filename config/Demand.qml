@@ -26,7 +26,7 @@ Singleton {
     property var holders: ({})
 
     // Why the list below is empty, when it is. The layer publishes this so
-    // `caelestia-forge status` can tell "gating is working, the desktop is
+    // `hyprforge status` can tell "gating is working, the desktop is
     // covered" apart from "the widgets are broken" - they look identical from
     // the outside, and only one of them is a problem.
     property string idleReason: ""

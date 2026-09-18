@@ -9,7 +9,7 @@ import qs.services
 import qs.layer
 import qs.editor
 
-// Caelestia Forge - a desktop designer for the caelestia dots.
+// Hyprforge - a desktop designer for the caelestia dots.
 //
 // Two halves in one process:
 //   * WidgetLayer  - the always-on layer-shell surfaces that render whatever
@@ -17,7 +17,7 @@ import qs.editor
 //   * Editor       - an on-demand fullscreen canvas that takes over the screen
 //                    so those same widgets can be dragged, snapped and tuned.
 //
-// Toggle it from anywhere with:  qs -c caelestia-forge ipc call editor toggle
+// Toggle it from anywhere with:  qs -c hyprforge ipc call editor toggle
 ShellRoot {
     id: root
 

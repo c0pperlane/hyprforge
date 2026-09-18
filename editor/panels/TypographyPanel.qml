@@ -10,7 +10,7 @@ import qs.services
 // Pick a font once, push it everywhere.
 //
 // Forge applies its own choice live; the rest goes out through
-// `caelestia-forge-fonts`, which edits the shell config, fontconfig, the GTK
+// `hyprforge-fonts`, which edits the shell config, fontconfig, the GTK
 // settings and Discord's user CSS - each of them optional, all of them
 // revertible from the button at the bottom.
 FloatingPanel {

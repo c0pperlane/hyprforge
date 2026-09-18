@@ -1,4 +1,4 @@
-# Caelestia Forge — task list
+# Hyprforge — task list
 
 ## Done
 
@@ -22,8 +22,8 @@
 - **Idle cost** — ref-counted service demand: a widget only holds `nvidia-smi`,
   cava, weather and friends awake while it is genuinely on display. Unplaced
   widgets are never constructed; hidden ones and those on other outputs are torn
-  down. `caelestia-forge status` prints what is currently held.
-- **Single instance** — `qs -c caelestia-forge -n -d`; `qs kill` to stop. Two
+  down. `hyprforge status` prints what is currently held.
+- **Single instance** — `qs -c hyprforge -n -d`; `qs kill` to stop. Two
   daemons were drawing the same widgets twice.
 - **Seventeen more widgets** — core load, top processes, temperatures, network
   interfaces, disk I/O, uptime ring, pomodoro, stopwatch, volume, brightness,
@@ -71,8 +71,8 @@ Plan:
    font tool is, watching `scheme.json`.
 4. Check whether Millennium live-reloads `quick.css`; if not, find its reload
    IPC, and otherwise accept "applies on next Steam start".
-5. Extend `caelestia-forge-fonts`-style CLI, or add a sibling
-   `caelestia-forge-colors`, with apply/revert and a backup of `quick.css`.
+5. Extend `hyprforge-fonts`-style CLI, or add a sibling
+   `hyprforge-colors`, with apply/revert and a backup of `quick.css`.
 
 Open question: whether the user wants this to follow *every* scheme change
 automatically or be a toggle.

@@ -1,13 +1,13 @@
 #!/bin/sh
-# Caelestia Forge - desktop designer for the caelestia dots.
+# Hyprforge - a desktop designer for Hyprland.
 #
 # The widget layer runs as a Quickshell daemon; the editor is an overlay it
 # opens on request. This script is what the start-menu entry and the keybind
 # both call: it talks to a running daemon over IPC, and starts one first if
 # there isn't one yet.
 
-CONFIG=caelestia-forge
-UNIT=caelestia-forge.service
+CONFIG=hyprforge
+UNIT=hyprforge.service
 
 # When the systemd unit is installed it owns the daemon's lifecycle: starting
 # or stopping behind its back leaves systemd's idea of the service wrong, and a
@@ -15,6 +15,17 @@ UNIT=caelestia-forge.service
 managed() {
     systemctl --user cat "$UNIT" >/dev/null 2>&1
 }
+
+# Forge used to live under ~/.config/caelestia/forge, back when caelestia was
+# a hard requirement. Anyone upgrading past that rename should keep their
+# layout, and they will not necessarily have run the installer to get it.
+STATE="${XDG_CONFIG_HOME:-$HOME/.config}/hyprforge"
+LEGACY="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia/forge"
+if [ ! -f "$STATE/layout.json" ] && [ -f "$LEGACY/layout.json" ]; then
+    mkdir -p "$STATE"
+    cp -a "$LEGACY/." "$STATE/" 2>/dev/null &&
+        echo "hyprforge: migrated your layout from $LEGACY" >&2
+fi
 
 ipc() {
     qs -c "$CONFIG" ipc call "$@" 2>/dev/null
@@ -45,20 +56,20 @@ case "${1:-edit}" in
     fonts)
         # Everything after "fonts" goes straight to the font tool.
         shift
-        exec caelestia-forge-fonts "$@"
+        exec hyprforge-fonts "$@"
         ;;
     sample)
         # Swap in one of the bundled layouts, keeping a backup of the current
         # one - this replaces everything you have placed.
         name="${2:-}"
-        dir="$HOME/.config/quickshell/caelestia-forge/samples"
+        dir="$HOME/.config/quickshell/hyprforge/samples"
         if [ -z "$name" ]; then
             echo "available samples:"
             for f in "$dir"/*.json; do [ -e "$f" ] && echo "  $(basename "$f" .json)"; done
             exit 0
         fi
         src="$dir/$name.json"
-        [ -f "$src" ] || { echo "caelestia-forge: no sample called '$name'" >&2; exit 1; }
+        [ -f "$src" ] || { echo "hyprforge: no sample called '$name'" >&2; exit 1; }
         dst="$HOME/.config/caelestia/forge/layout.json"
         [ -f "$dst" ] && cp "$dst" "$dst.bak"
         cp "$src" "$dst"
@@ -104,7 +115,7 @@ case "${1:-edit}" in
         ;;
     -h|--help|help)
         cat <<'USAGE'
-caelestia-forge [command]
+hyprforge [command]
 
   edit      open the designer (default; starts the daemon if needed)
   toggle    open/close the designer
@@ -122,7 +133,7 @@ caelestia-forge [command]
 USAGE
         ;;
     *)
-        echo "caelestia-forge: unknown command '$1' (try --help)" >&2
+        echo "hyprforge: unknown command '$1' (try --help)" >&2
         exit 2
         ;;
 esac

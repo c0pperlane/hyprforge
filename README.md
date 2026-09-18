@@ -1,13 +1,13 @@
-# Caelestia Forge
+# Hyprforge
 
-A desktop designer for the caelestia dots. It runs as its own Quickshell
+A desktop designer for Hyprland. It runs as its own Quickshell
 config, draws whatever you place on every monitor, and opens a full-screen
 editor on demand so you can drag, snap and fine-tune those widgets in place.
 
 ```
 Desktop Designer        in the launcher / start menu
 SUPER + ALT + D         toggle the editor
-caelestia-forge         same thing, from a terminal
+hyprforge               same thing, from a terminal
 ```
 
 51 widgets, free positioning with grid / edge / sibling / spacing snapping,
@@ -55,32 +55,59 @@ numbers for the same machine, checked against `free`, `df` and `sensors`. The
 no-caelestia path is tested by masking the module out with
 `bwrap --tmpfs /usr/lib/qt6/qml/Caelestia`.
 
-`qs -c caelestia-forge ipc call diag backend` prints which source is live and
+`qs -c hyprforge ipc call diag backend` prints which source is live and
 what it currently reads.
 
 ## Install
 
 ```sh
-git clone https://github.com/<you>/caelestia-forge ~/.config/quickshell/caelestia-forge
-install -Dm755 ~/.config/quickshell/caelestia-forge/bin/caelestia-forge ~/.local/bin/caelestia-forge
-install -Dm755 ~/.config/quickshell/caelestia-forge/bin/caelestia-forge-fonts ~/.local/bin/caelestia-forge-fonts
-install -Dm644 ~/.config/quickshell/caelestia-forge/systemd/caelestia-forge.service ~/.config/systemd/user/caelestia-forge.service
+curl -fsSL https://raw.githubusercontent.com/REPO_SLUG/main/install.sh | bash
 ```
 
-Autostart is a systemd user unit rather than a compositor exec: the session is
-uwsm-managed here, so `graphical-session.target` is the thing that actually
-knows when a compositor exists, and systemd supervises and restarts it.
+Or, since piping a stranger's script into a shell is a habit worth not having:
 
 ```sh
-systemctl --user enable --now caelestia-forge.service
+git clone https://github.com/REPO_SLUG ~/Projects/hyprforge
+less ~/Projects/hyprforge/install.sh     # read it
+~/Projects/hyprforge/install.sh
 ```
 
-Your layout lives in `~/.config/caelestia/forge/layout.json`, outside this
-repo, so nothing you place is tracked here.
+Both do the same thing, entirely per-user — it refuses to run as root:
+
+| | |
+|---|---|
+| `~/.config/quickshell/hyprforge` | the shell itself, copied rather than symlinked so a `git checkout` in your clone cannot hot-reload your running desktop |
+| `~/.local/bin/hyprforge` | the CLI, plus `hyprforge-fonts` |
+| `~/.config/systemd/user/hyprforge.service` | autostart, enabled and started |
+| `~/.local/share/applications/hyprforge.desktop` | "Desktop Designer" in your launcher |
+| `~/.config/hyprforge/` | your layout and settings — **not** in the repo |
+
+Re-running it upgrades in place and leaves your layout alone. Then bind a key:
+
+```
+bind = SUPER ALT, D, exec, hyprforge toggle
+```
+
+Uninstalling is `systemctl --user disable --now hyprforge.service` and deleting
+those five paths.
+
+### Upgrading from caelestia-forge
+
+Forge was called `caelestia-forge` while caelestia was a hard requirement. The
+installer and the CLI both migrate `~/.config/caelestia/forge` to
+`~/.config/hyprforge` on first run and leave the originals in place, so there
+is nothing to do but remove the old unit and binaries once you are happy:
+
+```sh
+systemctl --user disable --now caelestia-forge.service
+rm -f ~/.local/bin/caelestia-forge* ~/.config/systemd/user/caelestia-forge.service \
+      ~/.local/share/applications/caelestia-forge.desktop
+rm -rf ~/.config/quickshell/caelestia-forge
+```
 
 ## How it is put together
 
-Two halves, one process (`qs -c caelestia-forge`):
+Two halves, one process (`qs -c hyprforge`):
 
 - **The widget layer** (`layer/`) — one layer-shell surface per monitor on
   `WlrLayer.Bottom`, rendering everything in your layout. Input is masked down
@@ -155,7 +182,7 @@ either, since nothing could appear on it anyway.
 Check it at any time:
 
 ```
-caelestia-forge status
+hyprforge status
 ```
 
 which prints every service currently held awake and by how many widgets, or
@@ -163,7 +190,7 @@ which prints every service currently held awake and by how many widgets, or
 "the widgets are broken" otherwise look identical from outside:
 
 ```
-$ caelestia-forge status
+$ hyprforge status
 unit: enabled, active
 running
 (idle - nothing held: desktop is covered by windows)
@@ -174,20 +201,20 @@ in view it should name the services the placed widgets actually use.
 
 ## Running it
 
-The daemon is started with `qs -c caelestia-forge -n -d`. **The `-n` matters**:
+The daemon is started with `qs -c hyprforge -n -d`. **The `-n` matters**:
 without it a second launch starts another daemon, both draw their own
 layer-shell surface on the same output, and every widget appears twice —
 slightly offset if one of them has a stale layout. Stopping likewise goes
-through `qs kill -c caelestia-forge` rather than matching on
+through `qs kill -c hyprforge` rather than matching on
 `/proc/PID/cmdline`, because a daemonised instance rewrites its argv and a
 cmdline grep silently finds nothing.
 
 ### Autostart
 
-A systemd user unit, `~/.config/systemd/user/caelestia-forge.service`, is what
+A systemd user unit, `~/.config/systemd/user/hyprforge.service`, is what
 starts it at login:
 
-    systemctl --user enable --now caelestia-forge.service
+    systemctl --user enable --now hyprforge.service
 
 It is `WantedBy=graphical-session.target`, which under uwsm is the only thing
 that reliably knows a compositor exists and has published `WAYLAND_DISPLAY`
@@ -196,13 +223,13 @@ into the user environment. `PartOf=` takes it down with the session, and
 will not respawn itself — capped at four tries in two minutes so a broken
 config stops instead of spinning.
 
-Under systemd the unit runs `qs -c caelestia-forge -n` **without** `-d`:
+Under systemd the unit runs `qs -c hyprforge -n` **without** `-d`:
 systemd supervises the process directly, and daemonising would hand it a pid
 that exits immediately.
 
 There is deliberately no second mechanism. An `hl.on("hyprland.start")` hook in
 `hypr-user.lua` would race the unit and can end up with two daemons; that file
-now only carries the `SUPER + ALT + D` keybind. `caelestia-forge start|stop|
+now only carries the `SUPER + ALT + D` keybind. `hyprforge start|stop|
 restart` detect the unit and defer to `systemctl --user` so the CLI and systemd
 cannot disagree about whether it is running.
 
@@ -213,9 +240,9 @@ cannot disagree about whether it is running.
 | `~/.config/caelestia/forge/layout.json` | the document: every placed widget |
 | `~/.config/caelestia/forge/settings.json` | grid, snapping, editor prefs |
 | `~/.local/state/caelestia/scheme.json` | *read only* — the live M3 palette |
-| `samples/` | bundled layouts, see `caelestia-forge sample` |
+| `samples/` | bundled layouts, see `hyprforge sample` |
 
-Both JSON files are yours to hand-edit. `caelestia-forge reload` re-reads the
+Both JSON files are yours to hand-edit. `hyprforge reload` re-reads the
 layout; settings are watched and apply live.
 
 ## The editor
@@ -445,7 +472,7 @@ you want it to go — each target independently switchable:
 | --- | --- |
 | Forge widgets | Forge's own `settings.json` |
 | Caelestia shell | `appearance.font.*.family` in `shell.json` |
-| System default | `~/.config/fontconfig/conf.d/99-caelestia-forge-fonts.conf` |
+| System default | `~/.config/fontconfig/conf.d/99-hyprforge-fonts.conf` |
 | GTK apps | `gsettings` + `gtk-3.0`/`gtk-4.0` `settings.ini` |
 | Discord | the Vencord `quickCss.css` of Equibop/Vesktop |
 
@@ -468,9 +495,9 @@ Everything is reversible. **Revert all** restores the backups the tool made
 and puts the GTK settings back. The same thing from a terminal:
 
 ```
-caelestia-forge fonts apply --sans "Rubik" --mono "JetBrainsMono Nerd Font" --force
-caelestia-forge fonts revert
-caelestia-forge fonts status
+hyprforge fonts apply --sans "Rubik" --mono "JetBrainsMono Nerd Font" --force
+hyprforge fonts revert
+hyprforge fonts status
 ```
 
 The shell and Forge apply a font change live; other apps pick it up on restart.
@@ -543,11 +570,11 @@ cp ~/.config/caelestia/shell.json.pre-forge ~/.config/caelestia/shell.json
 ## CLI
 
 ```
-caelestia-forge            open the designer
-caelestia-forge toggle     open/close it
-caelestia-forge widgets    show/hide the desktop layer
-caelestia-forge reload     re-read layout.json
-caelestia-forge sample     list bundled layouts
-caelestia-forge sample starter
-caelestia-forge start|stop the daemon
+hyprforge            open the designer
+hyprforge toggle     open/close it
+hyprforge widgets    show/hide the desktop layer
+hyprforge reload     re-read layout.json
+hyprforge sample     list bundled layouts
+hyprforge sample starter
+hyprforge start|stop the daemon
 ```

@@ -43,7 +43,7 @@ Singleton {
 
             // Font choices. Blank means "use Forge's bundled default" - the
             // same Google Sans Flex the shell ships. Written here by the
-            // Typography panel and by `caelestia-forge-fonts`, which is also
+            // Typography panel and by `hyprforge-fonts`, which is also
             // what pushes the same choice out to the shell, fontconfig, GTK
             // and Discord.
             property JsonObject fonts: JsonObject {

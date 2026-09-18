@@ -236,7 +236,7 @@ PanelWindow {
     }
 
     screen: root.focusedScreen
-    WlrLayershell.namespace: "caelestia-forge-editor"
+    WlrLayershell.namespace: "hyprforge-editor"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
@@ -255,7 +255,7 @@ PanelWindow {
         // Hyprland from Lua, where dispatch() expects Lua call syntax.
         // Runtime-only and scoped to our namespace, so nothing persists.
         if (Settings.editor.blur)
-            Quickshell.execDetached(["hyprctl", "keyword", "layerrule", "blur,namespace:caelestia-forge-editor"]);
+            Quickshell.execDetached(["hyprctl", "keyword", "layerrule", "blur,namespace:hyprforge-editor"]);
     }
 
     // --- backdrop ---------------------------------------------------------

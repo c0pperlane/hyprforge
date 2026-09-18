@@ -1,6 +1,6 @@
 [Unit]
-Description=Caelestia Forge desktop widget layer
-Documentation=file://%h/.config/quickshell/caelestia-forge/README.md
+Description=Hyprforge desktop widget layer
+Documentation=file://%h/.config/quickshell/hyprforge/README.md
 # The widgets are layer-shell surfaces, so there has to be a compositor to
 # attach them to. uwsm publishes WAYLAND_DISPLAY into the user environment and
 # reaches graphical-session.target once the session is actually usable.
@@ -20,7 +20,7 @@ Type=simple
 # No -d: systemd supervises the process itself, so daemonising would just hand
 # it back a pid that exits immediately. -n refuses to start a second instance,
 # which is what stops two daemons drawing every widget twice.
-ExecStart=/usr/bin/qs -c caelestia-forge -n
+ExecStart=/usr/bin/qs -c hyprforge -n
 Restart=on-failure
 RestartSec=3
 # Quickshell declines to restart itself after a crash to avoid a crash loop;

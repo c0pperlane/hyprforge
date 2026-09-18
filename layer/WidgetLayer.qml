@@ -44,7 +44,7 @@ Variants {
         }
 
         screen: modelData
-        WlrLayershell.namespace: "caelestia-forge"
+        WlrLayershell.namespace: "hyprforge"
         WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
         // OnDemand only while a text widget is actually on this output: the

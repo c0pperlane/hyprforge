@@ -6,7 +6,7 @@ import Quickshell.Io
 
 // Live Material 3 palette + type scale for Forge.
 //
-// Forge runs as its own Quickshell config (`qs -c caelestia-forge`), so it
+// Forge runs as its own Quickshell config (`qs -c hyprforge`), so it
 // cannot import the shell's `qs.services.Colours` singleton - that lives in a
 // different config root. Instead we read the same source of truth the shell's
 // Colours service reads: ~/.local/state/caelestia/scheme.json, rewritten by
@@ -17,7 +17,10 @@ Singleton {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${home}/.local/state`}/caelestia`
-    readonly property string configPath: `${Quickshell.env("XDG_CONFIG_HOME") || `${home}/.config`}/caelestia/forge`
+    // Your layout and settings. Migrated out of ~/.config/caelestia/forge by
+    // the installer when Forge stopped being caelestia-only; the launcher
+    // copies it too, for anyone who upgrades without running the installer.
+    readonly property string configPath: `${Quickshell.env("XDG_CONFIG_HOME") || `${home}/.config`}/hyprforge`
 
     property string schemeName: "dynamic"
     property string flavour: "default"

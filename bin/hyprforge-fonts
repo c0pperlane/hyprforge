@@ -3,7 +3,7 @@
 
 Targets, each independently selectable:
 
-  forge       Caelestia Forge's own widgets   (forge settings.json)
+  forge       Hyprforge's own widgets   (forge settings.json)
   shell       the caelestia shell: bar, drawers, launcher  (caelestia/shell.json)
   fontconfig  the sans-serif/serif/monospace defaults every toolkit resolves
   gtk         GTK 3/4 apps, via gsettings and settings.ini
@@ -30,7 +30,7 @@ STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "caelest
 
 FORGE_SETTINGS = CONFIG / "caelestia/forge/settings.json"
 SHELL_JSON = CONFIG / "caelestia/shell.json"
-FONTCONF = CONFIG / "fontconfig/conf.d/99-caelestia-forge-fonts.conf"
+FONTCONF = CONFIG / "fontconfig/conf.d/99-hyprforge-fonts.conf"
 GTK_DIRS = [CONFIG / "gtk-3.0", CONFIG / "gtk-4.0"]
 DISCORD_CSS = [
     CONFIG / "equibop/settings/quickCss.css",
@@ -39,8 +39,8 @@ DISCORD_CSS = [
 STATE_FILE = STATE / "forge-fonts.json"
 
 BACKUP_SUFFIX = ".pre-forge-fonts"
-CSS_BEGIN = "/* caelestia-forge fonts BEGIN - do not edit inside this block */"
-CSS_END = "/* caelestia-forge fonts END */"
+CSS_BEGIN = "/* hyprforge fonts BEGIN - do not edit inside this block */"
+CSS_END = "/* hyprforge fonts END */"
 
 # Families that must keep resolving to themselves. An icon font asked for by
 # name and answered with a text font renders as tofu or, worse, as the literal
@@ -174,8 +174,8 @@ def fontconfig_xml(sans, mono, serif, force, all_families, mono_fams=()):
     lines = [
         '<?xml version="1.0"?>',
         '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">',
-        "<!-- Written by caelestia-forge-fonts. Delete this file, or run",
-        "     `caelestia-forge-fonts revert`, to go back to the defaults. -->",
+        "<!-- Written by hyprforge-fonts. Delete this file, or run",
+        "     `hyprforge-fonts revert`, to go back to the defaults. -->",
         "<fontconfig>",
     ]
 

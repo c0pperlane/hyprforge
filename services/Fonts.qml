@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Installed fonts, and the bridge to `caelestia-forge-fonts`.
+// Installed fonts, and the bridge to `hyprforge-fonts`.
 //
 // The actual file surgery - shell.json, fontconfig, GTK settings, Discord's
 // quickCss - lives in that script rather than here: it is easier to read, it
@@ -13,7 +13,7 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property string tool: "caelestia-forge-fonts"
+    readonly property string tool: "hyprforge-fonts"
 
     property var families: []
     property var monoFamilies: []
