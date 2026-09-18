@@ -37,7 +37,7 @@ Colours follow your wallpaper — same layout, different wall:
 |---|---|
 | [Quickshell](https://quickshell.org) | **required** — Hyprforge is a Quickshell config |
 | Hyprland | **required** |
-| [caelestia-shell](https://github.com/caelestia-dots/shell) | *optional* — nicer system metrics. Everything else, lyrics included, works without it; only the audio spectrum genuinely needs it. See [docs/caelestia.md](docs/caelestia.md). |
+| [caelestia-shell](https://github.com/caelestia-dots/shell) | *optional* — nicer system metrics. Everything else, lyrics included, works without it; the bar-spectrum visualiser wants either this or the separate `cava` package. See [docs/caelestia.md](docs/caelestia.md). |
 
 ## Install
 
@@ -153,10 +153,13 @@ Without caelestia-shell these come from `/proc` and `sysfs`.
 currently reads. GPU load needs either an amdgpu/intel card exposing
 `gpu_busy_percent`, or `nvidia-smi`.
 
-**The visualiser says it needs caelestia-shell.**
-It does, and it's the one thing that genuinely can't be replaced — the audio
-spectrum is an FFT of the monitor stream done in caelestia's C++, and there's
-no substitute in Qt.
+**The wave/level widgets react to audio, but the bar spectrum doesn't.**
+That's [`cava`](https://github.com/karlstav/cava) (the real CLI tool, unrelated
+to caelestia beyond sharing a name) — install it and the Visualiser picks it up
+automatically, no restart needed beyond reopening the widget. A bar spectrum
+needs an actual FFT of the audio, which PipeWire's own API doesn't expose;
+caelestia-shell or `cava` are the two things that can supply one.
+[docs/widgets.md](docs/widgets.md#audio) has the details.
 
 **I can't type in the sticky note.**
 Click directly on the text. A layer-shell surface only takes keyboard focus
@@ -166,6 +169,7 @@ again, which is intended.
 **Can I use this without caelestia-shell?**
 Yes — that's what *optional* means above. Lyrics come from
 [lrclib.net](https://lrclib.net) instead, a free public API; CPU/RAM/GPU/disk
-come from `/proc` and `sysfs`. The one thing that doesn't have a substitute is
-the audio spectrum, for the reason above. [docs/caelestia.md](docs/caelestia.md)
-has the full comparison.
+come from `/proc` and `sysfs`; the audio level (WaveLine) comes straight from
+PipeWire, always. The one thing with no built-in substitute is the bar
+spectrum (Visualiser) — install `cava` for that, or use caelestia-shell.
+[docs/caelestia.md](docs/caelestia.md) has the full comparison.

@@ -37,7 +37,8 @@ nothing.
 | Network throughput | `NetworkUsage` service | `/proc/net/dev` deltas |
 | Wavy line | `Caelestia.Components` | dropped — reimplemented as plain QML, so that module is no longer used at all |
 | Colours | `scheme.json` | the palette baked into `Theme.qml` |
-| **Audio spectrum** | `CavaProvider` | **none.** It is an FFT of the monitor stream done in C++ and there is nothing in Qt to stand in for it. The visualiser widgets say so instead of animating silence. |
+| Audio level (WaveLine) | — | `PwNodePeakMonitor`, straight off the default sink. This one is not really a caelestia fallback: it is what Volume.qml already relies on unconditionally, so it works identically with or without caelestia and always has. |
+| Audio **spectrum** (Visualiser's bars) | `CavaProvider` | the real [`cava`](https://github.com/karlstav/cava) CLI, run with `method = pipewire` and told to print raw values instead of drawing a terminal UI — see [docs/widgets.md](widgets.md#audio). A per-band spectrum needs an actual FFT of the stream, which PipeWire's own client API does not expose, only a peak level (the row above). Neither caelestia nor cava present, Visualiser says so rather than faking bars from that peak level. |
 | Lyrics | caelestia's fetcher | [lrclib.net](https://lrclib.net) — a free, keyless public API. Both write the same map + `.lrc` files to disk, so the reading side (parsing, timing, seeking) is one code path regardless of which one filled the cache. |
 | Keyboard layout detail | `HyprExtras` | falls back to the configured layout list |
 
@@ -50,6 +51,12 @@ The lyrics fetcher was checked against the real LRCLIB API rather than
 assumed - including the one genuine surprise it turned up: `/api/get`
 refuses the request outright without a `duration`, so a track whose length
 is not yet known goes straight to `/api/search` instead.
+
+The audio row split in two after it turned out to be less final than the
+first pass of this table claimed: "no substitute" was true of a full
+spectrum, but overstated for level-driven reactivity — PipeWire answers that
+part directly, no caelestia and no extra package, and Volume.qml was already
+proof of it. What was missing was *bars*, not audio.
 
 `qs -c hyprforge ipc call diag backend` prints which source is live and
 what it currently reads.

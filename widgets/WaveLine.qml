@@ -58,16 +58,7 @@ WidgetBase {
         running: root.visible
     }
 
-    // There is no substitute for cava's FFT, so say so rather than animating
-    // silence and letting it look broken.
-    Txt {
-        anchors.centerIn: parent
-        width: parent.width - 24
-        visible: !Cava.available
-        horizontalAlignment: Text.AlignHCenter
-        text: "Audio spectrum needs caelestia-shell"
-        font.pixelSize: 11
-        color: Theme.fgSurfaceVariant
-        wrapMode: Text.Wrap
-    }
+    // No empty state: unlike the full spectrum, this only ever needed one
+    // number - "how loud is it right now" - and PipeWire answers that
+    // directly with no caelestia and no extra package. See services/Cava.qml.
 }

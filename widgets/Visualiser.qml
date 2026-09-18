@@ -57,7 +57,7 @@ WidgetBase {
     Row {
         id: row
 
-        visible: Cava.available
+        visible: Cava.spectrum
 
         anchors.fill: parent
         spacing: root.num("spacing", 0.35) * (root.width / Math.max(1, root.barCount)) * 0.9
@@ -118,14 +118,17 @@ WidgetBase {
         }
     }
 
-    // There is no substitute for cava's FFT, so say so rather than animating
-    // silence and letting it look broken.
+    // A per-band spectrum needs an actual FFT source, which is caelestia's
+    // CavaProvider or the real `cava` CLI (see services/Cava.qml) - PipeWire
+    // on its own only gives an overall level, which is what WaveLine uses
+    // instead of this. Named rather than left as silence, and actionable
+    // rather than a dead end.
     Txt {
         anchors.centerIn: parent
         width: parent.width - 24
-        visible: !Cava.available
+        visible: !Cava.spectrum
         horizontalAlignment: Text.AlignHCenter
-        text: "Audio spectrum needs caelestia-shell"
+        text: "No spectrum source - install cava, or caelestia-shell"
         font.pixelSize: 11
         color: Theme.fgSurfaceVariant
         wrapMode: Text.Wrap

@@ -82,7 +82,8 @@ ShellRoot {
         // caelestia machine and a bare one.
         function backend(): string {
             const src = Cae.available ? "caelestia-shell" : "fallback (/proc, sysfs, df)";
-            return [`source: ${src}`, `cpu: ${(Sys.cpuPercent * 100).toFixed(1)}% ${Sys.cpuName}`, `cpuTemp: ${Sys.cpuTemp.toFixed(0)}C`, `mem: ${(Sys.memPercent * 100).toFixed(1)}% of ${(Sys.memTotalBytes / 1073741824).toFixed(1)}G`, `gpu: ${(Sys.gpuPercent * 100).toFixed(0)}% ${Sys.gpuName} ${Sys.gpuTemp.toFixed(0)}C`, `storage: ${(Sys.storagePercent * 100).toFixed(1)}% over ${Sys.disks.length} disk(s)`, `net: down ${(Sys.netDown / 1024).toFixed(1)} KiB/s up ${(Sys.netUp / 1024).toFixed(1)} KiB/s`, `cava: ${Cava.available ? "available" : "unavailable"}`].join("\n");
+            const audio = Cae.available ? "caelestia FFT" : (Cava.cliRunning ? "cava CLI" : "none - level only, via PipeWire");
+            return [`source: ${src}`, `cpu: ${(Sys.cpuPercent * 100).toFixed(1)}% ${Sys.cpuName}`, `cpuTemp: ${Sys.cpuTemp.toFixed(0)}C`, `mem: ${(Sys.memPercent * 100).toFixed(1)}% of ${(Sys.memTotalBytes / 1073741824).toFixed(1)}G`, `gpu: ${(Sys.gpuPercent * 100).toFixed(0)}% ${Sys.gpuName} ${Sys.gpuTemp.toFixed(0)}C`, `storage: ${(Sys.storagePercent * 100).toFixed(1)}% over ${Sys.disks.length} disk(s)`, `net: down ${(Sys.netDown / 1024).toFixed(1)} KiB/s up ${(Sys.netUp / 1024).toFixed(1)} KiB/s`, `spectrum: ${audio}`].join("\n");
         }
 
         function widgets(): string {

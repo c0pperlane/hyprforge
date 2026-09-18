@@ -94,6 +94,30 @@ state is configurable: a message, a bare icon, or hide the element entirely.
 selected or moved.
 
 
+## Audio
+
+Visualiser (a bar spectrum) and WaveLine (a wave that swells with the beat)
+both read from `services/Cava.qml`, which keeps the two apart because they
+need different data:
+
+- **WaveLine only ever needs one number** - how loud is it right now - and
+  PipeWire answers that directly with `PwNodePeakMonitor` on the default
+  sink. This is not really a fallback: it is what Volume.qml already relies
+  on unconditionally, so WaveLine has no empty state and no caveat, with or
+  without caelestia.
+- **Visualiser needs a real per-band spectrum** - distinct bars moving
+  somewhat independently, which means an actual FFT of the stream. PipeWire's
+  client API does not expose that, only the peak level above. Two things can
+  supply it: caelestia's `CavaProvider`, or the real [`cava`](https://github.com/karlstav/cava)
+  CLI (unrelated to caelestia beyond sharing a name) when it is installed.
+  Forge runs it with `method = pipewire`, `output method = raw` and
+  `data_format = ascii`, parsing its stdout with `SplitParser` rather than a
+  one-shot collector, since it is a continuous stream, not a single result.
+  A generated config lives at `~/.config/hyprforge/cava.conf`, rewritten and
+  the process restarted whenever the requested bar count changes. Neither
+  source present, the widget says so, naming what to install rather than
+  animating silence.
+
 ## Weather
 
 Locations are resolved per widget, so two weather elements can show two cities.
