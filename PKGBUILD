@@ -1,10 +1,10 @@
-# Maintainer: Manu <REPO_SLUG>
+# Maintainer: Manu <c0pperlane/hyprforge>
 pkgname=hyprforge
 pkgver=1.0.0
 pkgrel=1
 pkgdesc="A desktop widget designer for Hyprland"
 arch=('any')
-url="https://github.com/REPO_SLUG"
+url="https://github.com/c0pperlane/hyprforge"
 license=('custom:MIT-link')
 depends=('quickshell' 'hyprland' 'python')
 optdepends=(

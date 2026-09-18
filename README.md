@@ -1,7 +1,7 @@
 # Hyprforge
 
-[![downloads](https://img.shields.io/github/downloads/REPO_SLUG/total?label=downloads)](https://github.com/REPO_SLUG/releases)
-[![release](https://img.shields.io/github/v/release/REPO_SLUG)](https://github.com/REPO_SLUG/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/c0pperlane/hyprforge/total?label=downloads)](https://github.com/c0pperlane/hyprforge/releases)
+[![release](https://img.shields.io/github/v/release/c0pperlane/hyprforge)](https://github.com/c0pperlane/hyprforge/releases/latest)
 
 A desktop widget designer for Hyprland. Place widgets anywhere, drag them
 around with real snapping, and keep them on your desktop — 51 of them, from
@@ -42,13 +42,13 @@ Colours follow your wallpaper — same layout, different wall:
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/REPO_SLUG/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/c0pperlane/hyprforge/main/install.sh | bash
 ```
 
 Or read it first, which you should:
 
 ```sh
-git clone https://github.com/REPO_SLUG ~/Projects/hyprforge
+git clone https://github.com/c0pperlane/hyprforge ~/Projects/hyprforge
 ~/Projects/hyprforge/install.sh
 ```
 
@@ -104,7 +104,7 @@ back to it.** A rice, a dotfiles repo, a distro image, a fork — put a visible
 link in your README, about page, or package metadata:
 
 ```
-Desktop widgets by Hyprforge — https://github.com/REPO_SLUG
+Desktop widgets by Hyprforge — https://github.com/c0pperlane/hyprforge
 ```
 
 That's all. No permission to ask, no restrictions on what you build, nothing

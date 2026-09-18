@@ -16,7 +16,7 @@ furnished to do so, subject to the following conditions:
    a dotfiles repository, a rice, a distribution image, a package, or a fork -
    must carry a visible link to the upstream project:
 
-       https://github.com/REPO_SLUG
+       https://github.com/c0pperlane/hyprforge
 
    "Visible" means somewhere a person looking at your project would actually
    find it: the README, an about or credits page, or the package metadata. A

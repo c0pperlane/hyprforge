@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Hyprforge installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/REPO_SLUG/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/c0pperlane/hyprforge/main/install.sh | bash
 #
 # or, if you would rather read it first (you should):
 #
-#   git clone https://github.com/REPO_SLUG ~/Projects/hyprforge
+#   git clone https://github.com/c0pperlane/hyprforge ~/Projects/hyprforge
 #   ~/Projects/hyprforge/install.sh
 #
 # Installs to ~/.config/quickshell/hyprforge, ~/.local/bin and a systemd user
@@ -14,7 +14,7 @@
 # nobody.
 set -euo pipefail
 
-REPO="${HYPRFORGE_REPO:-https://github.com/REPO_SLUG}"
+REPO="${HYPRFORGE_REPO:-https://github.com/c0pperlane/hyprforge}"
 BRANCH="${HYPRFORGE_BRANCH:-main}"
 NAME=hyprforge
 
