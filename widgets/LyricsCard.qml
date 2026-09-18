@@ -32,6 +32,8 @@ WidgetBase {
             return root.str("loadingText", "Looking for lyrics…");
         case "none":
             return root.str("noLyricsText", "No lyrics");
+        case "unavailable":
+            return "Lyrics need caelestia-shell";
         case "idle":
             return root.str("idleText", "Nothing playing");
         default:
@@ -110,7 +112,7 @@ WidgetBase {
                 Icon {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: root.whenEmpty === "icon" || root.flag("emptyIcon", true)
-                    text: root.state === "loading" ? "hourglass" : root.state === "idle" ? "music_off" : "lyrics"
+                    text: root.state === "loading" ? "hourglass" : root.state === "idle" ? "music_off" : root.state === "unavailable" ? "extension_off" : "lyrics"
                     size: root.num("size", 18) * 1.3
                     color: Theme.alpha(root.muted, 0.7)
 

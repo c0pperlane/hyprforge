@@ -3,7 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Caelestia.Services
 import qs.config
 
 // Synced lyrics, read out of caelestia's own pipeline.
@@ -35,9 +34,9 @@ Singleton {
             return null;
         const p = Media.active;
         if (p && p.trackTitle)
-            Lyrics.setTrack(p.trackArtist, p.trackTitle, p.trackAlbum, p.length);
+            Cae.words?.setTrack(p.trackArtist, p.trackTitle, p.trackAlbum, p.length);
         else
-            Lyrics.clearTrack();
+            Cae.words?.clearTrack();
         return p;
     }
 
@@ -93,11 +92,18 @@ Singleton {
     // compiler decides otherwise.
     property bool graceExpired: false
 
+    // Forge reads lyrics off disk, but the thing that *fetches* them is
+    // caelestia's. Without it the cache never fills, and "loading" for ever
+    // would be a lie - so that case gets named.
+    readonly property bool available: !!Cae.words
+
     readonly property string state: {
-        if (!Media.hasPlayer)
-            return "idle";
         if (root.hasLyrics)
             return "playing";
+        if (!root.available)
+            return "unavailable";
+        if (!Media.hasPlayer)
+            return "idle";
         return root.graceExpired ? "none" : "loading";
     }
 

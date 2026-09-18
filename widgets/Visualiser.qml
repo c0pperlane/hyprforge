@@ -57,6 +57,8 @@ WidgetBase {
     Row {
         id: row
 
+        visible: Cava.available
+
         anchors.fill: parent
         spacing: root.num("spacing", 0.35) * (root.width / Math.max(1, root.barCount)) * 0.9
 
@@ -114,5 +116,18 @@ WidgetBase {
                 }
             }
         }
+    }
+
+    // There is no substitute for cava's FFT, so say so rather than animating
+    // silence and letting it look broken.
+    Txt {
+        anchors.centerIn: parent
+        width: parent.width - 24
+        visible: !Cava.available
+        horizontalAlignment: Text.AlignHCenter
+        text: "Audio spectrum needs caelestia-shell"
+        font.pixelSize: 11
+        color: Theme.fgSurfaceVariant
+        wrapMode: Text.Wrap
     }
 }

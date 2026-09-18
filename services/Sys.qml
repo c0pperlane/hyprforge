@@ -5,16 +5,19 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.UPower
-import Caelestia.Services
 import qs.config
 
 // One place every system-metric widget pulls from.
 //
-// The heavy lifting is done by caelestia's C++ service singletons, which are
-// installed as a normal QML module (/usr/lib/qt6/qml/Caelestia/Services) and so
-// are importable from this config root too. They only poll while something
-// holds a ServiceRef, hence the refs below - they're what makes Cpu.percentage
-// actually tick.
+// Two possible sources, chosen at startup. Where caelestia-shell is installed,
+// the heavy lifting is its C++ service singletons - reached through Cae rather
+// than imported here, so that a machine without them still loads. They only
+// poll while something holds a ServiceRef, which cae/Metrics.qml does on the
+// same Demand keys used everywhere else.
+//
+// Where they are absent, the readings come from /proc, sysfs and one df. Same
+// accessors, same demand gating, same units; see "working without caelestia"
+// below. Nothing downstream of this file knows which source answered.
 Singleton {
     id: root
 
@@ -108,25 +111,25 @@ Singleton {
                 key: "cpu",
                 label: "CPU",
                 icon: "memory",
-                value: root.norm(Cpu.percentage),
-                text: root.pct(Cpu.percentage),
-                sub: Cpu.name
+                value: root.norm(root.cpuPercent),
+                text: root.pct(root.cpuPercent),
+                sub: root.cpuName
             },
             cpuTemp: {
                 key: "cpuTemp",
                 label: "CPU temp",
                 icon: "thermostat",
-                value: Math.min(1, (Cpu.temperature || 0) / 100),
-                text: `${Math.round(Cpu.temperature || 0)}°`,
+                value: Math.min(1, (root.cpuTemp) / 100),
+                text: `${Math.round(root.cpuTemp)}°`,
                 sub: "core"
             },
             memory: {
                 key: "memory",
                 label: "RAM",
                 icon: "memory_alt",
-                value: root.norm(Memory.percentage),
-                text: root.pct(Memory.percentage),
-                sub: `${root.bytes(Memory.used * 1024)} / ${root.bytes(Memory.total * 1024)}`
+                value: root.norm(root.memPercent),
+                text: root.pct(root.memPercent),
+                sub: `${root.bytes(root.memUsedBytes)} / ${root.bytes(root.memTotalBytes)}`
             },
             swap: {
                 key: "swap",
@@ -140,17 +143,17 @@ Singleton {
                 key: "gpu",
                 label: "GPU",
                 icon: "developer_board",
-                value: root.norm(Gpu.percentage),
-                text: root.pct(Gpu.percentage),
-                sub: Gpu.name
+                value: root.norm(root.gpuPercent),
+                text: root.pct(root.gpuPercent),
+                sub: root.gpuName
             },
             gpuTemp: {
                 key: "gpuTemp",
                 label: "GPU temp",
                 icon: "mode_heat",
-                value: Math.min(1, (Gpu.temperature || 0) / 100),
-                text: `${Math.round(Gpu.temperature || 0)}°`,
-                sub: Gpu.name
+                value: Math.min(1, (root.gpuTemp) / 100),
+                text: `${Math.round(root.gpuTemp)}°`,
+                sub: root.gpuName
             },
             vram: {
                 key: "vram",
@@ -158,17 +161,17 @@ Singleton {
                 icon: "view_in_ar",
                 // Real memory use where nvidia-smi can tell us; otherwise fall
                 // back to GPU busy% rather than showing a confident zero.
-                value: root.vramTotalMib > 0 ? root.vramUsedMib / root.vramTotalMib : root.norm(Gpu.percentage),
-                text: root.vramTotalMib > 0 ? `${(root.vramUsedMib / 1024).toFixed(1)} / ${(root.vramTotalMib / 1024).toFixed(1)} GB` : root.pct(Gpu.percentage),
-                sub: Gpu.name
+                value: root.vramTotalMib > 0 ? root.vramUsedMib / root.vramTotalMib : root.norm(root.gpuPercent),
+                text: root.vramTotalMib > 0 ? `${(root.vramUsedMib / 1024).toFixed(1)} / ${(root.vramTotalMib / 1024).toFixed(1)} GB` : root.pct(root.gpuPercent),
+                sub: root.gpuName
             },
             disk: {
                 key: "disk",
                 label: "Disk",
                 icon: "hard_disk",
-                value: root.norm(Storage.percentage),
-                text: root.pct(Storage.percentage),
-                sub: Storage.primaryDisk?.mount ?? "/"
+                value: root.norm(root.storagePercent),
+                text: root.pct(root.storagePercent),
+                sub: root.storagePrimary?.mount ?? "/"
             },
             battery: {
                 key: "battery",
@@ -182,9 +185,9 @@ Singleton {
                 key: "netDown",
                 label: "Down",
                 icon: "download",
-                value: Math.min(1, NetworkUsage.downloadSpeed / root.netDownScale),
-                text: root.rate(NetworkUsage.downloadSpeed),
-                sub: root.bytes(NetworkUsage.downloadTotal)
+                value: Math.min(1, root.netDown / root.netDownScale),
+                text: root.rate(root.netDown),
+                sub: root.bytes(root.netDownTotal)
             },
             cpuPower: {
                 key: "cpuPower",
@@ -200,7 +203,7 @@ Singleton {
                 icon: "electric_bolt",
                 value: Math.min(1, root.gpuWatts / root.gpuPowerScale),
                 text: `${root.gpuWatts.toFixed(1)} W`,
-                sub: Gpu.name
+                sub: root.gpuName
             },
             gpuClock: {
                 key: "gpuClock",
@@ -254,9 +257,9 @@ Singleton {
                 key: "netUp",
                 label: "Up",
                 icon: "upload",
-                value: Math.min(1, NetworkUsage.uploadSpeed / root.netUpScale),
-                text: root.rate(NetworkUsage.uploadSpeed),
-                sub: root.bytes(NetworkUsage.uploadTotal)
+                value: Math.min(1, root.netUp / root.netUpScale),
+                text: root.rate(root.netUp),
+                sub: root.bytes(root.netUpTotal)
             }
         })
 
@@ -307,6 +310,8 @@ Singleton {
     // The Memory service reports RAM only, so swap was previously showing RAM's
     // own percentage - a metric that looked plausible and was simply wrong.
 
+    property real memTotalKb: 0
+    property real memAvailKb: 0
     property real swapTotal: 0
     property real swapFree: 0
     readonly property real swapUsed: Math.max(0, root.swapTotal - root.swapFree)
@@ -320,21 +325,26 @@ Singleton {
 
         onLoaded: {
             for (const line of text().split("\n")) {
-                const m = /^(SwapTotal|SwapFree):\s+(\d+)/.exec(line);
+                const m = /^(SwapTotal|SwapFree|MemTotal|MemAvailable):\s+(\d+)/.exec(line);
                 if (!m)
                     continue;
                 // kB in the file; bytes everywhere in this service.
                 if (m[1] === "SwapTotal")
                     root.swapTotal = parseInt(m[2]) * 1024;
-                else
+                else if (m[1] === "SwapFree")
                     root.swapFree = parseInt(m[2]) * 1024;
+                else if (m[1] === "MemTotal")
+                    root.memTotalKb = parseInt(m[2]);
+                else
+                    root.memAvailKb = parseInt(m[2]);
             }
         }
     }
 
     Timer {
         interval: 4000
-        running: Demand.needed("sys.swap")
+        // Feeds the memory fallback as well as swap.
+        running: Demand.needed("sys.swap") || (!root.caelestia && Demand.needed("sys.memory"))
         repeat: true
         triggeredOnStart: true
         onTriggered: meminfo.reload()
@@ -376,7 +386,8 @@ Singleton {
 
     Timer {
         interval: 4000
-        running: Demand.needed("sys.temps")
+        // The CPU temperature fallback picks the package sensor out of this.
+        running: Demand.needed("sys.temps") || (!root.caelestia && Demand.needed("sys.cpu"))
         repeat: true
         triggeredOnStart: true
         onTriggered: tempProc.running = true
@@ -435,6 +446,8 @@ Singleton {
 
     property var cores: []
     property var lastCoreRaw: []
+    property var lastAggRaw: null
+    property real procCpuPercent: 0
 
     FileView {
         id: procStat
@@ -445,8 +458,30 @@ Singleton {
         onLoaded: {
             const rows = [];
             for (const line of text().split("\n")) {
-                if (!line.startsWith("cpu") || line.startsWith("cpu "))
-                    continue;   // "cpu " is the aggregate; Cpu already has that
+                if (line.startsWith("cpu ")) {
+                    // The aggregate line. Only needed when caelestia is absent
+                    // and nothing else is reporting total CPU, but it is free
+                    // here - the file is already open and parsed.
+                    const a = line.trim().split(/\s+/).slice(1).map(n => parseInt(n) || 0);
+                    if (a.length >= 5) {
+                        const idle = a[3] + a[4];
+                        const total = a.reduce((x, y) => x + y, 0);
+                        const prevA = root.lastAggRaw;
+                        if (prevA) {
+                            const dT = total - prevA.total;
+                            const dI = idle - prevA.idle;
+                            if (dT > 0)
+                                root.procCpuPercent = Math.max(0, Math.min(100, (dT - dI) / dT * 100));
+                        }
+                        root.lastAggRaw = {
+                            idle: idle,
+                            total: total
+                        };
+                    }
+                    continue;
+                }
+                if (!line.startsWith("cpu"))
+                    continue;
                 const f = line.trim().split(/\s+/);
                 const nums = f.slice(1).map(n => parseInt(n) || 0);
                 if (nums.length < 5)
@@ -479,7 +514,10 @@ Singleton {
 
     Timer {
         interval: 1500
-        running: Demand.needed("sys.cores")
+        // Also the total-CPU source when caelestia is absent, so it has to
+        // run for "sys.cpu" too - the per-core view was its only consumer
+        // while the C++ service was reporting the aggregate.
+        running: Demand.needed("sys.cores") || (!root.caelestia && Demand.needed("sys.cpu"))
         repeat: true
         triggeredOnStart: true
         onTriggered: procStat.reload()
@@ -884,6 +922,215 @@ Singleton {
 
     // --- battery ----------------------------------------------------------
 
+
+    // --- working without caelestia -----------------------------------------
+    //
+    // Every metric below has two sources: caelestia-shell's C++ services when
+    // they are installed, and a plain reader when they are not. The accessors
+    // are what the rest of the file uses, so nothing downstream knows or cares
+    // which one answered.
+    //
+    // The fallbacks are deliberately the cheap, boring versions - /proc and one
+    // df - and they are gated on the same Demand keys, so an absent caelestia
+    // costs the same nothing when the widgets are off-screen.
+
+    readonly property bool caelestia: Cae.available
+
+    // Units: every percentage accessor below is a 0..1 fraction, because that
+    // is what the caelestia services report and it was the incumbent. The
+    // /proc side speaks in 0..100, so it is divided here rather than left to
+    // norm(), whose "bigger than 1 must be a percentage" guess cannot tell a
+    // 0.5% reading from a 50% one.
+
+    readonly property real cpuPercent: root.caelestia ? (Cae.metrics?.cpuPercent ?? 0) : root.procCpuPercent / 100
+    readonly property string cpuName: root.caelestia ? (Cae.metrics?.cpuName ?? "") : root.procCpuName
+    readonly property real cpuTemp: root.caelestia ? (Cae.metrics?.cpuTemp ?? 0) : root.procCpuTemp
+
+    readonly property real memTotalBytes: root.caelestia ? (Cae.metrics?.memTotal ?? 0) * 1024 : root.memTotalKb * 1024
+    readonly property real memUsedBytes: root.caelestia ? (Cae.metrics?.memUsed ?? 0) * 1024 : Math.max(0, (root.memTotalKb - root.memAvailKb) * 1024)
+    readonly property real memPercent: root.caelestia ? (Cae.metrics?.memPercent ?? 0) : (root.memTotalKb > 0 ? (root.memTotalKb - root.memAvailKb) / root.memTotalKb : 0)
+
+    readonly property real gpuPercent: root.caelestia ? (Cae.metrics?.gpuPercent ?? 0) : root.procGpuPercent / 100
+    readonly property string gpuName: root.caelestia ? (Cae.metrics?.gpuName ?? "") : root.procGpuName
+    readonly property real gpuTemp: root.caelestia ? (Cae.metrics?.gpuTemp ?? 0) : root.procGpuTemp
+
+    readonly property real storagePercent: root.caelestia ? (Cae.metrics?.storagePercent ?? 0) : root.procStoragePercent / 100
+    readonly property var storagePrimary: root.caelestia ? Cae.metrics?.storagePrimary : root.procDisks[0]
+    readonly property var disks: root.caelestia ? (Cae.metrics?.storageDisks ?? []) : root.procDisks
+
+    readonly property real netUp: root.caelestia ? (Cae.metrics?.netUp ?? 0) : root.procNetUp
+    readonly property real netDown: root.caelestia ? (Cae.metrics?.netDown ?? 0) : root.procNetDown
+    readonly property real netUpTotal: root.caelestia ? (Cae.metrics?.netUpTotal ?? 0) : root.procNetUpTotal
+    readonly property real netDownTotal: root.caelestia ? (Cae.metrics?.netDownTotal ?? 0) : root.procNetDownTotal
+
+    // --- fallback sources ---------------------------------------------------
+
+    property string procCpuName: ""
+    property real procGpuPercent: 0
+    property string procGpuName: ""
+    property real procGpuTemp: 0
+    property real procStoragePercent: 0
+    property var procDisks: []
+    property real procNetUp: 0
+    property real procNetDown: 0
+    property real procNetUpTotal: 0
+    property real procNetDownTotal: 0
+    property var lastNetRaw: null
+
+    // The hottest package sensor, which is what "CPU temperature" means on
+    // every machine that reports one. Reuses the hwmon sweep already running.
+    readonly property real procCpuTemp: {
+        let best = 0;
+        for (const t of root.temperatures ?? []) {
+            const n = `${t.chip} ${t.label}`.toLowerCase();
+            if (n.includes("package") || n.includes("tctl") || n.includes("tdie") || t.chip === "coretemp" || t.chip === "k10temp")
+                best = Math.max(best, t.celsius);
+        }
+        return best;
+    }
+
+    // Read once: the model name does not change while the machine is up.
+    FileView {
+        path: "/proc/cpuinfo"
+        printErrors: false
+        // Read once, explicitly: nothing else would ever ask it to.
+        Component.onCompleted: reload()
+
+        onLoaded: {
+            const m = /^model name\s*:\s*(.+)$/m.exec(text());
+            if (m)
+                root.procCpuName = m[1].trim();
+        }
+    }
+
+    // amdgpu and intel both expose a busy percentage in sysfs; nvidia needs
+    // nvidia-smi, which the caelestia-less path asks for separately because
+    // the existing nvidia Process here is about power and VRAM.
+    Process {
+        id: gpuFallback
+
+        running: false
+        command: ["sh", "-c", "for d in /sys/class/drm/card*/device; do [ -r \"$d/gpu_busy_percent\" ] || continue; echo \"busy $(cat $d/gpu_busy_percent)\"; [ -r \"$d/uevent\" ] && grep -m1 '^DRIVER=' \"$d/uevent\"; break; done; command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,name --format=csv,noheader,nounits | head -1 | sed 's/^/nv /'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                for (const line of text.trim().split("\n")) {
+                    const nv = /^nv\s+(\d+)\s*,\s*(\d+)\s*,\s*(.+)$/.exec(line);
+                    if (nv) {
+                        root.procGpuPercent = parseInt(nv[1]);
+                        root.procGpuTemp = parseInt(nv[2]);
+                        root.procGpuName = nv[3].trim();
+                        continue;
+                    }
+                    const busy = /^busy\s+(\d+)$/.exec(line);
+                    if (busy && !root.procGpuName)
+                        root.procGpuPercent = parseInt(busy[1]);
+                    const drv = /^DRIVER=(.+)$/.exec(line);
+                    if (drv && !root.procGpuName)
+                        root.procGpuName = drv[1].trim();
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: 3000
+        running: !root.caelestia && Demand.needed("sys.gpu")
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: gpuFallback.running = true
+    }
+
+    // One df for every real filesystem. Percentages come straight from it
+    // rather than being recomputed, so they match what the shell would say.
+    Process {
+        id: dfFallback
+
+        running: false
+        command: ["sh", "-c", "df -B1 --output=target,size,used,pcent -x tmpfs -x devtmpfs -x efivarfs -x overlay 2>/dev/null | tail -n +2"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = [];
+                for (const line of text.trim().split("\n")) {
+                    const f = line.trim().split(/\s+/);
+                    if (f.length < 4)
+                        continue;
+                    const total = parseInt(f[1]);
+                    const used = parseInt(f[2]);
+                    if (!Number.isFinite(total) || total <= 0)
+                        continue;
+                    out.push({
+                        mount: f[0],
+                        total: total,
+                        used: used,
+                        free: total - used,
+                        percentage: parseFloat(f[3])
+                    });
+                }
+                root.procDisks = out;
+                const rootFs = out.find(d => d.mount === "/");
+                root.procStoragePercent = rootFs ? rootFs.percentage : (out[0]?.percentage ?? 0);
+            }
+        }
+    }
+
+    Timer {
+        interval: 20000
+        running: !root.caelestia && Demand.needed("sys.storage")
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: dfFallback.running = true
+    }
+
+    // /proc/net/dev is cumulative, so speed is a delta over the interval.
+    // Loopback is excluded; everything else is summed, which is what the
+    // caelestia service reports too.
+    FileView {
+        id: procNetDev
+
+        path: "/proc/net/dev"
+        printErrors: false
+
+        onLoaded: {
+            let rx = 0;
+            let tx = 0;
+            for (const line of text().split("\n")) {
+                const m = /^\s*([\w.-]+):\s*(.*)$/.exec(line);
+                if (!m || m[1] === "lo")
+                    continue;
+                const f = m[2].trim().split(/\s+/).map(n => parseInt(n) || 0);
+                if (f.length < 9)
+                    continue;
+                rx += f[0];
+                tx += f[8];
+            }
+            root.procNetDownTotal = rx;
+            root.procNetUpTotal = tx;
+
+            const now = Date.now();
+            const prev = root.lastNetRaw;
+            if (prev) {
+                const dt = (now - prev.t) / 1000;
+                if (dt > 0.05) {
+                    root.procNetDown = Math.max(0, (rx - prev.rx) / dt);
+                    root.procNetUp = Math.max(0, (tx - prev.tx) / dt);
+                }
+            }
+            root.lastNetRaw = {
+                t: now,
+                rx: rx,
+                tx: tx
+            };
+        }
+    }
+
+    Timer {
+        interval: 2000
+        running: !root.caelestia && Demand.needed("sys.net")
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: procNetDev.reload()
+    }
+
     readonly property var batteryDevice: UPower.displayDevice
     readonly property bool hasBattery: batteryDevice?.isLaptopBattery ?? false
     readonly property real batteryLevel: root.norm(batteryDevice?.percentage ?? 0)
@@ -975,13 +1222,13 @@ Singleton {
         case "cpu":
             return {
                 label: "CPU",
-                value: Cpu.name,
+                value: root.cpuName,
                 icon: "developer_board"
             };
         case "gpu":
             return {
                 label: "GPU",
-                value: Gpu.name,
+                value: root.gpuName,
                 icon: "view_in_ar"
             };
         case "fans":
@@ -1011,35 +1258,10 @@ Singleton {
         }
     }
 
-    ServiceRef {
-        // Assigning null releases the reference, which is what stops the
-        // underlying poller - these services only tick while referenced.
-        service: Demand.needed("sys.cpu") ? Cpu : null
-    }
 
-    ServiceRef {
-        // Assigning null releases the reference, which is what stops the
-        // underlying poller - these services only tick while referenced.
-        service: Demand.needed("sys.memory") ? Memory : null
-    }
 
-    ServiceRef {
-        // Assigning null releases the reference, which is what stops the
-        // underlying poller - these services only tick while referenced.
-        service: Demand.needed("sys.gpu") ? Gpu : null
-    }
 
-    ServiceRef {
-        // Assigning null releases the reference, which is what stops the
-        // underlying poller - these services only tick while referenced.
-        service: Demand.needed("sys.storage") ? Storage : null
-    }
 
-    ServiceRef {
-        // Assigning null releases the reference, which is what stops the
-        // underlying poller - these services only tick while referenced.
-        service: Demand.needed("sys.net") ? NetworkUsage : null
-    }
 
     FileView {
         path: "/etc/os-release"

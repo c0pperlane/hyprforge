@@ -17,22 +17,46 @@ while it is off-screen.
 
 ## Requirements
 
-Read this part before cloning — the dependency chain is real and a missing
-QML import is a load failure, not a degraded widget.
-
 | | |
 |---|---|
 | **Quickshell** | Required. This is a Quickshell config, not a standalone app. Built against 0.3.1 / Qt 6.11. |
-| **[caelestia-shell](https://github.com/caelestia-dots/shell)** | Required. `Caelestia.Services` and `Caelestia.Components` are imported by six files, including the `Sys` metrics backbone that most widgets read. Without it the config will not start. |
-| **Hyprland** | Required as written. Eight files use `Quickshell.Hyprland` for monitor enumeration, the `reserved` insets behind the usable-area guides, the Workspaces widget, and the screen-based visibility conditions. |
+| **Hyprland** | Required. Monitor enumeration, the `reserved` insets behind the usable-area guides, the Workspaces widget and the screen-based visibility conditions all go through `Quickshell.Hyprland`. The layer-shell half is generic wlroots and would run on Sway, river or niri; these queries would not. |
+| **[caelestia-shell](https://github.com/caelestia-dots/shell)** | **Optional.** Forge is caelestia-top-up compatible: it uses caelestia's services where they exist and its own readers where they do not. |
 
-The layer-shell half is generic wlroots and would run on Sway, river or niri;
-the Hyprland queries would not. Porting off Hyprland is the smaller job of the
-two — the `Caelestia.Services` metrics backbone is the larger one.
+### Running without caelestia
 
-Colours are the one graceful degradation: `Theme.qml` reads caelestia's
-`~/.local/state/caelestia/scheme.json` but carries a complete palette of its
-own and warns instead of failing when that file is absent.
+Forge grew up inside the caelestia dots and used its C++ services directly,
+which made caelestia a hard requirement for reasons that had nothing to do
+with the designer — a QML `import` of a missing module is a *compile* error,
+so one absent plugin took the whole config down rather than one widget.
+
+Everything that touches `Caelestia.*` now lives in `services/cae/`, loaded at
+runtime. `Cae.available` is the answer to "is caelestia-shell installed", and
+every consumer reads through an accessor with a plain-QML fallback behind it.
+Same accessors, same units, same demand gating, so nothing downstream knows
+which source answered — and the idle cost with caelestia absent is the same
+nothing.
+
+| Metric | With caelestia | Without |
+|---|---|---|
+| CPU load, temperature, model | `Cpu` service | `/proc/stat` aggregate, hwmon package sensor, `/proc/cpuinfo` |
+| Memory | `Memory` service | `/proc/meminfo` |
+| GPU load, temperature, name | `Gpu` service | `gpu_busy_percent` in sysfs, or `nvidia-smi` |
+| Disks | `Storage` service | one `df` |
+| Network throughput | `NetworkUsage` service | `/proc/net/dev` deltas |
+| Wavy line | `Caelestia.Components` | dropped — reimplemented as plain QML, so that module is no longer used at all |
+| Colours | `scheme.json` | the palette baked into `Theme.qml` |
+| **Audio spectrum** | `CavaProvider` | **none.** It is an FFT of the monitor stream done in C++ and there is nothing in Qt to stand in for it. The visualiser widgets say so instead of animating silence. |
+| **Lyrics** | caelestia's fetcher | **none.** Forge reads lyrics off disk either way, but the thing that *fills* that cache is caelestia's, so the card reports `Lyrics need caelestia-shell` rather than claiming to load forever. |
+| Keyboard layout detail | `HyprExtras` | falls back to the configured layout list |
+
+Verified both ways: the caelestia path and the fallback path report the same
+numbers for the same machine, checked against `free`, `df` and `sensors`. The
+no-caelestia path is tested by masking the module out with
+`bwrap --tmpfs /usr/lib/qt6/qml/Caelestia`.
+
+`qs -c caelestia-forge ipc call diag backend` prints which source is live and
+what it currently reads.
 
 ## Install
 

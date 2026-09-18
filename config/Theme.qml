@@ -186,6 +186,9 @@ Singleton {
 
     FileView {
         path: `${root.statePath}/scheme.json`
+        // Optional: without caelestia there is no scheme to follow and the
+        // palette below stands on its own, so a missing file is not a fault.
+        printErrors: false
         watchChanges: true
         onFileChanged: reload()
         onLoaded: root.load(text())

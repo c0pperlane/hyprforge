@@ -1,5 +1,4 @@
 import QtQuick
-import Caelestia.Services
 import qs.components
 import qs.config
 import qs.services
@@ -25,7 +24,7 @@ WidgetBase {
 
     readonly property var rows: {
         const out = [];
-        for (const d of Storage.disks ?? []) {
+        for (const d of Sys.disks) {
             if (!root.matches(d.mount))
                 continue;
             out.push({
@@ -39,9 +38,6 @@ WidgetBase {
         return out;
     }
 
-    ServiceRef {
-        service: Storage
-    }
 
     Column {
         anchors.left: parent.left
@@ -105,7 +101,7 @@ WidgetBase {
 
         ListTxt {
             visible: !root.rows.length
-            text: Storage.disks?.length ? "No disks matched the filter" : "No disks reported"
+            text: Sys.disks.length ? "No disks matched the filter" : "No disks reported"
             font.pixelSize: 12
             color: root.muted
         }

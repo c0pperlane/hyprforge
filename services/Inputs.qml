@@ -3,7 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import Caelestia.Services
 import qs.config
 
 // Keyboard layout and audio, for the widgets that show them.
@@ -16,7 +15,9 @@ Singleton {
 
     // --- keyboard -----------------------------------------------------------
 
-    readonly property var keyboard: extras.devices?.keyboards?.find(kb => kb.main) ?? null
+    // Without caelestia there is no HyprExtras, so the main keyboard cannot be
+    // identified and the layout readout falls back to the configured list.
+    readonly property var keyboard: Cae.extras?.devices?.keyboards?.find(kb => kb.main) ?? null
     readonly property string layoutList: root.keyboard?.layout ?? ""
     readonly property string activeKeymap: root.keyboard?.activeKeymap ?? ""
 
@@ -59,11 +60,5 @@ Singleton {
     function cycleLayout(): void {
         if (root.layouts.length > 1 && root.keyboard)
             Hyprland.dispatch(`switchxkblayout ${root.keyboard.name} next`);
-    }
-
-    HyprExtras {
-        id: extras
-
-        usingLua: Hyprland.usingLua
     }
 }

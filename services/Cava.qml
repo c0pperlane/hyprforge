@@ -2,22 +2,26 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Caelestia.Services
 import qs.config
 
 // Audio spectrum shared by every visualiser widget. `bars` is raised to the
 // largest bar count any live widget asks for, so two visualisers at different
 // resolutions still only run one cava.
+//
+// This is the one service with no fallback: it is an FFT of the monitor
+// stream done in caelestia's C++, and there is nothing in Qt to stand in for
+// it. Without caelestia `available` is false and the visualiser widgets say
+// so rather than animating silence.
 Singleton {
     id: root
 
     property var requests: ({})
 
-    readonly property CavaProvider provider: cava
-    readonly property list<real> values: cava.values
+    readonly property bool available: !!Cae.audio
+    readonly property var values: Cae.audio?.values ?? []
     // Cheap "is anything making noise" signal, handy for reactive decor.
     readonly property real level: {
-        const v = cava.values;
+        const v = root.values;
         if (!v || !v.length)
             return 0;
         let s = 0;
@@ -44,19 +48,11 @@ Singleton {
         let max = 0;
         for (const k of Object.keys(root.requests))
             max = Math.max(max, root.requests[k]);
-        cava.bars = Math.max(8, max);
+        if (Cae.audio)
+            Cae.audio.bars = Math.max(8, max);
     }
 
-    CavaProvider {
-        id: cava
-
-        bars: 42
-    }
-
-    ServiceRef {
-        // Cava kept its own request/release map before Demand existed; the map
-        // still decides the bar count, but whether the capture runs at all is
-        // now the same mechanism every other service uses.
-        service: Demand.needed("cava") ? cava : null
-    }
+    // The ServiceRef that actually gates the capture lives in cae/Audio.qml,
+    // on the same Demand key: the map here still decides the bar count, but
+    // whether anything runs is the mechanism every other service uses.
 }

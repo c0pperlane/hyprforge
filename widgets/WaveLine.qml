@@ -1,5 +1,4 @@
 import QtQuick
-import Caelestia.Components
 import qs.components
 import qs.config
 import qs.services
@@ -26,7 +25,7 @@ WidgetBase {
             Cava.release(root.cavaId);
     }
 
-    WavyLine {
+    Wavy {
         id: line
 
         anchors.left: parent.left
@@ -57,5 +56,18 @@ WidgetBase {
         duration: 2600
         loops: Animation.Infinite
         running: root.visible
+    }
+
+    // There is no substitute for cava's FFT, so say so rather than animating
+    // silence and letting it look broken.
+    Txt {
+        anchors.centerIn: parent
+        width: parent.width - 24
+        visible: !Cava.available
+        horizontalAlignment: Text.AlignHCenter
+        text: "Audio spectrum needs caelestia-shell"
+        font.pixelSize: 11
+        color: Theme.fgSurfaceVariant
+        wrapMode: Text.Wrap
     }
 }

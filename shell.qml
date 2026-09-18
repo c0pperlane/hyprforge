@@ -5,6 +5,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.config
+import qs.services
 import qs.layer
 import qs.editor
 
@@ -74,6 +75,14 @@ ShellRoot {
             if (Demand.liveLayers > 0)
                 return `(idle - nothing held; ${Demand.liveLayers} layer(s) drawing, ${Demand.liveWidgets} widget(s) live)`;
             return Demand.idleReason ? `(idle - nothing held: ${Demand.idleReason})` : "(idle - nothing held)";
+        }
+
+        // Which metric source is live, and what it is currently reporting.
+        // The point of this one is that the answer should look the same on a
+        // caelestia machine and a bare one.
+        function backend(): string {
+            const src = Cae.available ? "caelestia-shell" : "fallback (/proc, sysfs, df)";
+            return [`source: ${src}`, `cpu: ${(Sys.cpuPercent * 100).toFixed(1)}% ${Sys.cpuName}`, `cpuTemp: ${Sys.cpuTemp.toFixed(0)}C`, `mem: ${(Sys.memPercent * 100).toFixed(1)}% of ${(Sys.memTotalBytes / 1073741824).toFixed(1)}G`, `gpu: ${(Sys.gpuPercent * 100).toFixed(0)}% ${Sys.gpuName} ${Sys.gpuTemp.toFixed(0)}C`, `storage: ${(Sys.storagePercent * 100).toFixed(1)}% over ${Sys.disks.length} disk(s)`, `net: down ${(Sys.netDown / 1024).toFixed(1)} KiB/s up ${(Sys.netUp / 1024).toFixed(1)} KiB/s`, `cava: ${Cava.available ? "available" : "unavailable"}`].join("\n");
         }
 
         function widgets(): string {
