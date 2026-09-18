@@ -260,9 +260,19 @@ PanelWindow {
 
     // --- backdrop ---------------------------------------------------------
 
+    // Opaque, and deliberately outside the artboard.
+    //
+    // Past roughly 3x zoom Qt stops rendering the artboard's subtree - the
+    // scaled board is larger than it will draw in one item - and everything
+    // in it disappears, including whatever was meant to be the background.
+    // What you get is your real windows showing through the editor. Putting
+    // the backdrop here, a sibling of the canvas, means the worst that can
+    // happen at extreme zoom is a flat background instead of the wallpaper.
+    // `editor.dim` still controls how dark it is over the live desktop while
+    // the editor fades in.
     Rectangle {
         anchors.fill: parent
-        color: Theme.alpha(Theme.background, Settings.editor.dim)
+        color: Theme.background
     }
 
     // --- canvas -----------------------------------------------------------

@@ -48,7 +48,14 @@ Item {
     // Never above 1: the "100%" reset in the toolbar has to stay reachable
     // even when the board is small and the viewport is huge.
     readonly property real minZoom: Math.min(1, Math.max(0.05, root.fitZoom * 0.5))
-    readonly property real maxZoom: 6
+    // 2x, and this is a hard technical ceiling rather than a taste call.
+    // Beyond roughly 3x the scaled board exceeds what Qt will render in one
+    // item, and it does not fail gracefully: the batch breaks and the entire
+    // window stops painting its backgrounds, so you end up looking at your
+    // real windows through the editor. Tested at 1x and 2x (correct), 3x and
+    // above (transparent). 2x on a 2560px board is 5120px of detail, and the
+    // inspector has numeric fields for anything finer.
+    readonly property real maxZoom: 2
 
     function clampZoom(z: real): real {
         return Math.max(root.minZoom, Math.min(root.maxZoom, z));
@@ -597,6 +604,31 @@ Item {
         color: Theme.background
     }
 
+    // The board's own fill, drawn unscaled.
+    //
+    // It used to live inside `artboard` and be scaled with it. Past about 3x
+    // the scaled rectangle is larger than Qt will render in one item and it
+    // silently stops painting - the whole board turns transparent and you are
+    // looking at your actual windows through the editor, while the widgets
+    // (small enough individually) carry on drawing. Sizing it to the board's
+    // *on-screen* rectangle instead means it is never bigger than the
+    // viewport, so there is no zoom at which it can fail.
+    readonly property rect boardRect: {
+        const x0 = Math.max(0, EditorState.panX);
+        const y0 = Math.max(0, EditorState.panY);
+        const x1 = Math.min(root.width, EditorState.panX + root.tw * root.zoom);
+        const y1 = Math.min(root.height, EditorState.panY + root.th * root.zoom);
+        return Qt.rect(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+    }
+
+    Rectangle {
+        x: root.boardRect.x
+        y: root.boardRect.y
+        width: root.boardRect.width
+        height: root.boardRect.height
+        color: Theme.surfaceContainerLowest
+    }
+
     Item {
         id: artboard
 
@@ -607,12 +639,7 @@ Item {
         scale: root.zoom
         transformOrigin: Item.TopLeft
 
-        // Board background: the real wallpaper if wanted, otherwise a plain
-        // "empty desktop" so layout decisions aren't fighting a busy image.
-        Rectangle {
-            anchors.fill: parent
-            color: Theme.surfaceContainerLowest
-        }
+
 
         Image {
             anchors.fill: parent
