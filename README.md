@@ -9,7 +9,23 @@ clocks and system meters to lyrics, sticky notes and an audio spectrum.
 
 Press a key, the desktop becomes a canvas. Press it again, it's a desktop.
 
-<!-- screenshot here -->
+Lightweight: a widget that isn't on screen isn't running. Cover the desktop
+and every timer, poll and API call stops until you can see it again.
+
+![The desktop](docs/images/desktop.png)
+
+Drag widgets straight out of the library onto the canvas, drag them around to
+reposition, drag their handles to resize. Everything snaps — to a grid, to
+your screen edges and safe area, to other widgets' edges and centres, and to
+the spacing your layout already uses, so a stack comes out evenly padded
+without you measuring anything. Hold and nudge with the arrow keys for the
+last pixel.
+
+![The editor](docs/images/editor.png)
+
+The inspector on the right edits whatever is selected: position, size,
+rotation, opacity, per-corner radius, colours, fonts, and the conditions that
+decide when a widget is on the desktop at all.
 
 ## Requirements
 
