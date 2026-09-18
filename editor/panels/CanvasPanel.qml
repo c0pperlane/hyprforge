@@ -187,6 +187,20 @@ FloatingPanel {
                 }
 
                 Row2 {
+                    label: "To equal spacing"
+                    hint: "Match a gap the layout already uses"
+
+                    Sw {
+                        width: parent.width
+                        checked: Settings.snap.toSpacing
+                        onToggled: v => {
+                            Settings.snap.toSpacing = v;
+                            root.save();
+                        }
+                    }
+                }
+
+                Row2 {
                     label: "Magnet range"
                     labelWidth: 0.4
 

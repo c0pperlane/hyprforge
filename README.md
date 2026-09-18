@@ -265,6 +265,38 @@ colour picker to pin one instead.
 Widgets that edit their own state (the note, the checklist) call
 `writeProp(key, value)` and the host persists it against that instance.
 
+## Spacing snapping
+
+Alignment snapping lines edges up; it says nothing about the space between
+them. Drag a third card under two that sit 22px apart and the left edges go
+flush while the gap lands wherever the pointer stopped.
+
+So a dragged element also snaps to **gaps**: to a distance the layout already
+uses, and to the exact middle between the two elements it is being dropped
+between. When it lands, every gap on that axis that now measures the same is
+marked, not just the one that snapped — the point is the rhythm, so showing one
+measurement of it would be showing the wrong thing.
+
+Three rules keep the magnets meaningful rather than noisy:
+
+- Only siblings that **overlap on the other axis** count. A widget off in
+  another column is not part of this column's rhythm, and treating it as one
+  produces snaps that look like nothing at all.
+- Only the gap between **neighbours** is a gap. Measured across something else,
+  the distance from the first card to the third is a number the layout never
+  intended.
+- Gaps wider than `maxGap` (400px default) are not a rhythm, they are a gap.
+
+Spacing competes with alignment on plain distance, at the same weight as a
+sibling edge — matching an established gap is as deliberate as lining two edges
+up — and both beat the grid, which stays the weakest magnet. Weighting spacing
+*below* the grid was the obvious first guess and made it almost unreachable:
+with a 32px grid, no point on the board is more than 16px from a line.
+
+It applies to moving an element, not to the edge being pulled during a resize.
+Turn it off with **To equal spacing** in the Canvas panel.
+
+
 ## Visibility conditions
 
 Any element can carry rules that decide whether it is on the desktop at all:

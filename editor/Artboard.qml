@@ -177,6 +177,163 @@ Item {
         return out;
     }
 
+    // --- spacing snapping ---------------------------------------------------
+    //
+    // Edge snapping lines things up; it says nothing about the space between
+    // them. Dragging a third card under two that sit 20px apart, alignment
+    // gets the left edges flush and then leaves the gap wherever the mouse
+    // happened to stop. This adds the other half: candidate positions where
+    // the gap to a neighbour equals a gap the layout already uses, or where
+    // the element sits exactly halfway between the two it is being dropped
+    // between.
+    //
+    // Both axes work the same way, so the geometry is written once against
+    // "near/far" edges and the caller says which axis those are.
+
+    function boxesFor(excludeId: string, axisY: bool, rect: var): var {
+        // Only siblings that overlap on the *other* axis count: a widget off
+        // in another column is not part of this column's rhythm, and treating
+        // it as one produces snaps that look like nothing at all.
+        const out = [];
+        const lo = axisY ? rect.x : rect.y;
+        const hi = lo + (axisY ? rect.w : rect.h);
+        for (let i = 0; i < Store.widgets.count; i++) {
+            const w = Store.widgets.get(i);
+            if (w.screen !== EditorState.target || w.id === excludeId || w.hidden)
+                continue;
+            const olo = axisY ? w.x : w.y;
+            const ohi = olo + (axisY ? w.w : w.h);
+            if (ohi <= lo || olo >= hi)
+                continue;
+            out.push({
+                near: axisY ? w.y : w.x,
+                far: (axisY ? w.y : w.x) + (axisY ? w.h : w.w),
+                lo: olo,
+                hi: ohi
+            });
+        }
+        out.sort((a, b) => a.near - b.near);
+        return out;
+    }
+
+    // Every gap the current layout already uses on this axis, deduped to whole
+    // pixels. Taken from the whole board rather than only this column, so a
+    // new column can pick up the spacing an existing one established.
+    function knownGaps(excludeId: string, axisY: bool): var {
+        const rows = [];
+        for (let i = 0; i < Store.widgets.count; i++) {
+            const w = Store.widgets.get(i);
+            if (w.screen !== EditorState.target || w.id === excludeId || w.hidden)
+                continue;
+            rows.push({
+                near: axisY ? w.y : w.x,
+                far: (axisY ? w.y : w.x) + (axisY ? w.h : w.w),
+                lo: axisY ? w.x : w.y,
+                hi: (axisY ? w.x : w.y) + (axisY ? w.w : w.h)
+            });
+        }
+        const seen = ({});
+        const out = [];
+        for (const a of rows)
+            for (const b of rows) {
+                if (a === b || b.near < a.far)
+                    continue;
+                if (b.lo >= a.hi || b.hi <= a.lo)
+                    continue;   // not in line with each other
+                const g = Math.round(b.near - a.far);
+                if (g <= 0 || g > Settings.snap.maxGap || seen[g])
+                    continue;
+                // Only the gap between *neighbours* is a gap. Measured across
+                // something else, the distance from the first card to the
+                // third is a number the layout never intended, and offering it
+                // as a magnet makes the snap feel arbitrary.
+                let blocked = false;
+                for (const c of rows) {
+                    if (c === a || c === b || c.lo >= a.hi || c.hi <= a.lo)
+                        continue;
+                    if (c.far > a.far && c.near < b.near) {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if (blocked)
+                    continue;
+                seen[g] = true;
+                out.push(g);
+            }
+        return out;
+    }
+
+    // Candidate near-edge positions for the dragged rect, as {pos, gap}.
+    function spacingCandidates(rect: var, id: string, axisY: bool): var {
+        if (!Settings.snap.toSpacing)
+            return [];
+        const size = axisY ? rect.h : rect.w;
+        const boxes = root.boxesFor(id, axisY, rect);
+        if (!boxes.length)
+            return [];
+
+        const gaps = root.knownGaps(id, axisY);
+        const out = [];
+
+        for (const b of boxes)
+            for (const g of gaps) {
+                out.push({
+                    pos: b.far + g,
+                    gap: g
+                });      // below / right of it
+                out.push({
+                    pos: b.near - g - size,
+                    gap: g
+                });   // above / left of it
+            }
+
+        // Centred between two neighbours: the case with no established gap to
+        // copy, which is most of the time when the second element goes down.
+        for (let i = 0; i < boxes.length - 1; i++) {
+            const free = boxes[i + 1].near - boxes[i].far - size;
+            if (free > 1 && free / 2 <= Settings.snap.maxGap)
+                out.push({
+                    pos: boxes[i].far + free / 2,
+                    gap: free / 2
+                });
+        }
+        return out;
+    }
+
+    // After a spacing snap is chosen, find every gap on that axis that now
+    // measures the same, so the overlay can show the whole rhythm rather than
+    // just the one edge that snapped.
+    function spacingBands(rect: var, id: string, axisY: bool, gap: real): var {
+        const size = axisY ? rect.h : rect.w;
+        const near = axisY ? rect.y : rect.x;
+        const far = near + size;
+        const bands = [];
+        const tol = 0.75;
+
+        const me = {
+            near: near,
+            far: far,
+            lo: axisY ? rect.x : rect.y,
+            hi: (axisY ? rect.x : rect.y) + (axisY ? rect.w : rect.h)
+        };
+        const boxes = root.boxesFor(id, axisY, rect).concat([me]).sort((a, b) => a.near - b.near);
+
+        for (let i = 0; i < boxes.length - 1; i++) {
+            const g = boxes[i + 1].near - boxes[i].far;
+            if (Math.abs(g - gap) > tol)
+                continue;
+            bands.push({
+                from: boxes[i].far,
+                to: boxes[i + 1].near,
+                // Drawn down the middle of the overlap the two share, so the
+                // marker sits between them rather than off to one side.
+                cross: (Math.max(boxes[i].lo, boxes[i + 1].lo) + Math.min(boxes[i].hi, boxes[i + 1].hi)) / 2
+            });
+        }
+        return bands;
+    }
+
     // Sibling dimensions, so a resize can lock onto "the same width as that
     // one". Position snapping alone gets edges to line up; it cannot make two
     // widgets the same size unless they also happen to start at the same place.
@@ -236,6 +393,7 @@ Item {
     // applied to x and y only, which meant a resize never snapped to the grid
     // at all: the top-left corner landed on a line and the dragged edge landed
     // wherever the mouse was, so widths were never whole cells.
+
     function snapRect(x: real, y: real, w: real, h: real, id: string, edges: var): var {
         const result = {
             x: x,
@@ -315,7 +473,59 @@ Item {
                 bestY = b;
         }
 
-        if (bestX) {
+        // Spacing competes with alignment on plain distance, at the same
+        // weight as a sibling edge: matching the gap a layout already uses is
+        // as deliberate a relationship as lining two edges up, and both beat
+        // the grid, which stays the weakest magnet. Weighting spacing below
+        // the grid looked reasonable and made it almost unreachable - with a
+        // 32px grid no point on the board is more than 16px from a line.
+        //
+        // Only the whole rect moves, so spacing applies to a drag, not to the
+        // edge being pulled during a resize.
+        const wholeRect = useEdges.left && useEdges.right && useEdges.top && useEdges.bottom;
+
+        function bestSpacing(own, axisY) {
+            if (!wholeRect)
+                return null;
+            let winner = null;
+            for (const c of root.spacingCandidates({
+                x: x,
+                y: y,
+                w: w,
+                h: h
+            }, id, axisY)) {
+                const delta = c.pos - own;
+                const score = Math.abs(delta);
+                if (Math.abs(delta) <= d && (!winner || score < winner.score))
+                    winner = {
+                        delta: delta,
+                        gap: c.gap,
+                        score: score
+                    };
+            }
+            return winner;
+        }
+
+        const spaceX = bestSpacing(x, false);
+        const spaceY = bestSpacing(y, true);
+
+        if (spaceX && (!bestX || spaceX.score < bestX.score)) {
+            result.x = x + spaceX.delta;
+            for (const b of root.spacingBands({
+                x: result.x,
+                y: y,
+                w: w,
+                h: h
+            }, id, false, spaceX.gap))
+                result.guides.push({
+                    kind: "spacing",
+                    vertical: true,
+                    gap: spaceX.gap,
+                    from: b.from,
+                    to: b.to,
+                    cross: b.cross
+                });
+        } else if (bestX) {
             result.x = x + bestX.delta;
             result.guides.push({
                 vertical: true,
@@ -323,7 +533,24 @@ Item {
                 kind: bestX.kind
             });
         }
-        if (bestY) {
+
+        if (spaceY && (!bestY || spaceY.score < bestY.score)) {
+            result.y = y + spaceY.delta;
+            for (const b of root.spacingBands({
+                x: x,
+                y: result.y,
+                w: w,
+                h: h
+            }, id, true, spaceY.gap))
+                result.guides.push({
+                    kind: "spacing",
+                    vertical: false,
+                    gap: spaceY.gap,
+                    from: b.from,
+                    to: b.to,
+                    cross: b.cross
+                });
+        } else if (bestY) {
             result.y = y + bestY.delta;
             result.guides.push({
                 vertical: false,
@@ -428,7 +655,7 @@ Item {
         // --- alignment guides ---------------------------------------------
 
         Repeater {
-            model: Settings.snap.showGuides ? EditorState.guides : []
+            model: Settings.snap.showGuides ? EditorState.guides.filter(g => g.kind !== "spacing") : []
 
             Rectangle {
                 required property var modelData
@@ -442,6 +669,76 @@ Item {
                 color: guideColour
                 opacity: 0.9
                 z: 9000
+            }
+        }
+
+        // --- spacing markers ----------------------------------------------
+        //
+        // Every gap that matches the one just snapped to, not only the one the
+        // pointer is near: the point of the snap is the rhythm, so showing one
+        // measurement of it would be showing the wrong thing.
+
+        Repeater {
+            model: Settings.snap.showGuides ? EditorState.guides.filter(g => g.kind === "spacing") : []
+
+            Item {
+                required property var modelData
+
+                readonly property bool vert: modelData.vertical
+                readonly property real thickness: 1 / root.zoom
+                readonly property real cap: 5 / root.zoom
+
+                x: vert ? modelData.from : modelData.cross
+                y: vert ? modelData.cross : modelData.from
+                width: vert ? Math.max(0, modelData.to - modelData.from) : 0
+                height: vert ? 0 : Math.max(0, modelData.to - modelData.from)
+                z: 9100
+
+                // The span itself.
+                Rectangle {
+                    x: parent.vert ? 0 : -parent.thickness / 2
+                    y: parent.vert ? -parent.thickness / 2 : 0
+                    width: parent.vert ? parent.width : parent.thickness
+                    height: parent.vert ? parent.thickness : parent.height
+                    color: Theme.error
+                }
+
+                // End caps, so a gap of a few pixels is still legible as a
+                // measurement rather than a stray dot.
+                Repeater {
+                    model: 2
+
+                    Rectangle {
+                        required property int index
+
+                        readonly property real at: index === 0 ? 0 : (parent.vert ? parent.width : parent.height)
+
+                        x: parent.vert ? at - parent.thickness / 2 : -parent.cap
+                        y: parent.vert ? -parent.cap : at - parent.thickness / 2
+                        width: parent.vert ? parent.thickness : parent.cap * 2
+                        height: parent.vert ? parent.cap * 2 : parent.thickness
+                        color: Theme.error
+                    }
+                }
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: gapLabel.implicitWidth + 8 / root.zoom
+                    height: gapLabel.implicitHeight + 3 / root.zoom
+                    radius: height / 2
+                    color: Theme.error
+                    visible: (parent.vert ? parent.width : parent.height) * root.zoom > 26
+
+                    ListTxt {
+                        id: gapLabel
+
+                        anchors.centerIn: parent
+                        text: `${Math.round(parent.parent.modelData.gap)}`
+                        font.family: Theme.mono
+                        font.pixelSize: Math.max(7, Math.round(9 / root.zoom))
+                        color: Theme.contrast(Theme.error)
+                    }
+                }
             }
         }
 

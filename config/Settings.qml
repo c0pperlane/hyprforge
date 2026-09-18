@@ -89,6 +89,12 @@ Singleton {
                 property bool toEdges: true     // screen edges + safe margins
                 property bool toWidgets: true   // sibling alignment guides
                 property bool toSizes: true     // match a sibling's width/height
+                // Spacing snapping: land on a gap the layout already uses, or
+                // halfway between two neighbours, rather than only on their
+                // edges. What makes a stack evenly padded without measuring.
+                property bool toSpacing: true
+                property int maxGap: 400        // gaps wider than this are not
+                                                // a rhythm, they are a gap
                 // Cell mode: position and size always land on whole grid cells,
                 // with no magnet threshold - the grid stops being a hint and
                 // becomes the layout.
