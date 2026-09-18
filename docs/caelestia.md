@@ -38,13 +38,18 @@ nothing.
 | Wavy line | `Caelestia.Components` | dropped — reimplemented as plain QML, so that module is no longer used at all |
 | Colours | `scheme.json` | the palette baked into `Theme.qml` |
 | **Audio spectrum** | `CavaProvider` | **none.** It is an FFT of the monitor stream done in C++ and there is nothing in Qt to stand in for it. The visualiser widgets say so instead of animating silence. |
-| **Lyrics** | caelestia's fetcher | **none.** Forge reads lyrics off disk either way, but the thing that *fills* that cache is caelestia's, so the card reports `Lyrics need caelestia-shell` rather than claiming to load forever. |
+| Lyrics | caelestia's fetcher | [lrclib.net](https://lrclib.net) — a free, keyless public API. Both write the same map + `.lrc` files to disk, so the reading side (parsing, timing, seeking) is one code path regardless of which one filled the cache. |
 | Keyboard layout detail | `HyprExtras` | falls back to the configured layout list |
 
 Verified both ways: the caelestia path and the fallback path report the same
 numbers for the same machine, checked against `free`, `df` and `sensors`. The
 no-caelestia path is tested by masking the module out with
 `bwrap --tmpfs /usr/lib/qt6/qml/Caelestia`.
+
+The lyrics fetcher was checked against the real LRCLIB API rather than
+assumed - including the one genuine surprise it turned up: `/api/get`
+refuses the request outright without a `duration`, so a track whose length
+is not yet known goes straight to `/api/search` instead.
 
 `qs -c hyprforge ipc call diag backend` prints which source is live and
 what it currently reads.

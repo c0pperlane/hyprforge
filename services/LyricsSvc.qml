@@ -5,27 +5,35 @@ import Quickshell
 import Quickshell.Io
 import qs.config
 
-// Synced lyrics, read out of caelestia's own pipeline.
+// Synced lyrics.
 //
-// The shell already does the hard part and leaves the result on disk:
-//   ~/.local/state/caelestia/lyrics/lyrics_map.json
-//       "Artist - Title" -> { backend, id, offset }
-//   ~/.cache/caelestia/lyrics/<BACKEND>/<id>.lrc
-//       a plain LRC file with [mm:ss.xxx] timestamps
+// Two sources, chosen the same way Sys.qml chooses between caelestia's
+// metrics and /proc: caelestia's own pipeline when it is installed, LrcFetch
+// (a plain-QML fetcher against lrclib.net) when it is not. Both write the
+// same shape to disk -
+//   <mapPath>              "Artist - Title" -> { backend, id, offset }
+//   <cacheDir>/<BACKEND>/<id>.lrc   a plain LRC file with [mm:ss.xxx] stamps
+// - so everything below this point (parsing, timing, seeking, the empty
+// states) reads one pair of paths and does not know or care which side wrote
+// them.
 //
-// Forge reads those rather than running a second fetcher. Driving the C++
-// Lyrics service from this process did not work - it sat on "loading" forever
-// while the shell's own copy resolved the same track fine - and even if it had,
-// two processes racing to fetch and rewrite one cache is not a good design.
-// setTrack is still called, because that is what makes the shell's pipeline go
-// and fill the cache for a track nobody has opened the dashboard on yet; the
-// display then follows the files, whoever wrote them.
+// Driving the C++ Lyrics service directly from this process did not work - it
+// sat on "loading" forever while the shell's own copy resolved the same track
+// fine - and even if it had, two processes racing to fetch and rewrite one
+// cache is not a good design. setTrack is still called on the caelestia side,
+// because that is what makes the shell's pipeline go and fill the cache for a
+// track nobody has opened the dashboard on yet; the display then follows the
+// files, whoever wrote them.
 Singleton {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string mapPath: `${Theme.statePath}/lyrics/lyrics_map.json`
-    readonly property string cacheDir: `${Quickshell.env("XDG_CACHE_HOME") || `${home}/.cache`}/caelestia/lyrics`
+
+    // caelestia's own paths when it is doing the fetching, LrcFetch's when it
+    // is not. Never a mix of the two - a stale entry in one map pointing at
+    // the other's cache directory would just be a miss.
+    readonly property string mapPath: Cae.available ? `${Theme.statePath}/lyrics/lyrics_map.json` : LrcFetch.mapPath
+    readonly property string cacheDir: Cae.available ? `${Quickshell.env("XDG_CACHE_HOME") || `${home}/.cache`}/caelestia/lyrics` : LrcFetch.cacheDir
 
     // Side effect in a binding so it re-runs per track, the same shape the
     // shell's own lyric list uses.
@@ -33,10 +41,26 @@ Singleton {
         if (!Demand.needed("lyrics"))
             return null;
         const p = Media.active;
-        if (p && p.trackTitle)
-            Cae.words?.setTrack(p.trackArtist, p.trackTitle, p.trackAlbum, p.length);
-        else
+        if (p && p.trackTitle) {
+            if (Cae.available) {
+                Cae.words?.setTrack(p.trackArtist, p.trackTitle, p.trackAlbum, p.length);
+            } else {
+                // Deferred rather than called straight from here: setTrack on
+                // the fallback side is a QML function that writes ordinary
+                // properties (LrcFetch.map, curKey), and those propagate
+                // through Demand and FileView the same way anything else in
+                // this file does. Calling it synchronously, nested inside the
+                // evaluation of this binding, is exactly the shape a binding
+                // loop needs - Qt caught one in testing. Cae.words.setTrack
+                // above has no such risk: it is a call into a C++ slot with
+                // no QML property on either side of it. Qt.callLater runs
+                // this once the current evaluation has actually finished.
+                const artist = p.trackArtist, title = p.trackTitle, album = p.trackAlbum, length = p.length;
+                Qt.callLater(() => LrcFetch.setTrack(artist, title, album, length));
+            }
+        } else if (Cae.available) {
             Cae.words?.clearTrack();
+        }
         return p;
     }
 
@@ -92,16 +116,15 @@ Singleton {
     // compiler decides otherwise.
     property bool graceExpired: false
 
-    // Forge reads lyrics off disk, but the thing that *fetches* them is
-    // caelestia's. Without it the cache never fills, and "loading" for ever
-    // would be a lie - so that case gets named.
-    readonly property bool available: !!Cae.words
+    // There is always a fetcher now - caelestia's, or LrcFetch's own. This
+    // stays as a property (rather than being inlined into `state`) because it
+    // is still a real question worth asking on its own, e.g. from the
+    // Inspector or a future diagnostic.
+    readonly property bool available: true
 
     readonly property string state: {
         if (root.hasLyrics)
             return "playing";
-        if (!root.available)
-            return "unavailable";
         if (!Media.hasPlayer)
             return "idle";
         return root.graceExpired ? "none" : "loading";

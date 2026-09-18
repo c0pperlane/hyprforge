@@ -65,19 +65,28 @@ Widgets that edit their own state (the note, the checklist) call
 
 ## Lyrics
 
-The Lyrics element reads caelestia's own pipeline rather than fetching
-anything itself: the shell resolves a track and leaves the result on disk as
-`~/.local/state/caelestia/lyrics/lyrics_map.json` (`"Artist - Title"` ->
-backend, id, offset) plus a cached `.lrc` under
-`~/.cache/caelestia/lyrics/<BACKEND>/<id>.lrc`. Forge watches both and parses
-the LRC timestamps itself.
+The Lyrics element reads a map file plus a cached `.lrc`, and parses the LRC
+timestamps itself — it never fetches directly. What fills that cache depends
+on whether caelestia-shell is installed:
 
-It still calls `Lyrics.setTrack(...)`, which is what makes the shell's pipeline
-go for a track nobody has opened the dashboard on — but the display follows the
-files, whoever wrote them. Driving the C++ service from Forge's own process and
-reading its `lyrics` property did not work: it sat on "loading" indefinitely
-while the shell's copy resolved the same track fine, and two processes racing
-to fetch and rewrite one cache is not a design worth having.
+- **With caelestia**, its own pipeline resolves the track and writes
+  `~/.local/state/caelestia/lyrics/lyrics_map.json` (`"Artist - Title"` ->
+  backend, id, offset) plus `~/.cache/caelestia/lyrics/<BACKEND>/<id>.lrc`.
+  Forge still calls `Lyrics.setTrack(...)`, which is what makes the shell's
+  pipeline go for a track nobody has opened the dashboard on yet — the
+  display then follows the files, whoever wrote them. Driving the C++
+  service from Forge's own process and reading its `lyrics` property did not
+  work: it sat on "loading" indefinitely while the shell's own copy resolved
+  the same track fine, and two processes racing to fetch and rewrite one
+  cache is not a design worth having.
+- **Without it**, `LrcFetch` (`services/LrcFetch.qml`) queries
+  [lrclib.net](https://lrclib.net) — a free, keyless public API — and writes
+  the *same shape* into `~/.cache/hyprforge/lyrics/`, so the reading side
+  above is identical either way. An exact match goes through `/api/get`
+  (which requires a track duration — Media reports one for anything with
+  `mpris:length` set); a miss falls back to `/api/search`. A track with
+  genuinely no synced lyrics on LRCLIB is cached as a negative result, so it
+  is not re-queried every time it plays.
 
 Three layouts — scrolling, three-line, or just the current line — and the empty
 state is configurable: a message, a bare icon, or hide the element entirely.
