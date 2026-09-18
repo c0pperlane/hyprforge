@@ -1,4 +1,4 @@
-MIT License
+MIT License, with a link-back condition
 
 Copyright (c) 2026 Manu
 
@@ -9,8 +9,19 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+2. Any published work that uses, includes, or is derived from the Software -
+   a dotfiles repository, a rice, a distribution image, a package, or a fork -
+   must carry a visible link to the upstream project:
+
+       https://github.com/REPO_SLUG
+
+   "Visible" means somewhere a person looking at your project would actually
+   find it: the README, an about or credits page, or the package metadata. A
+   link that appears only inside this licence file does not satisfy this
+   condition.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

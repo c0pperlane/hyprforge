@@ -28,7 +28,7 @@ HOME = Path.home()
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "caelestia"
 
-FORGE_SETTINGS = CONFIG / "caelestia/forge/settings.json"
+FORGE_SETTINGS = CONFIG / "hyprforge/settings.json"
 SHELL_JSON = CONFIG / "caelestia/shell.json"
 FONTCONF = CONFIG / "fontconfig/conf.d/99-hyprforge-fonts.conf"
 GTK_DIRS = [CONFIG / "gtk-3.0", CONFIG / "gtk-4.0"]

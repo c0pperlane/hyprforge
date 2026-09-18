@@ -1,5 +1,8 @@
 # Hyprforge
 
+[![downloads](https://img.shields.io/github/downloads/REPO_SLUG/total?label=downloads)](https://github.com/REPO_SLUG/releases)
+[![release](https://img.shields.io/github/v/release/REPO_SLUG)](https://github.com/REPO_SLUG/releases/latest)
+
 A desktop designer for Hyprland. It runs as its own Quickshell
 config, draws whatever you place on every monitor, and opens a full-screen
 editor on demand so you can drag, snap and fine-tune those widgets in place.
@@ -88,8 +91,13 @@ Re-running it upgrades in place and leaves your layout alone. Then bind a key:
 bind = SUPER ALT, D, exec, hyprforge toggle
 ```
 
-Uninstalling is `systemctl --user disable --now hyprforge.service` and deleting
-those five paths.
+To remove it:
+
+```sh
+hyprforge uninstall              # asks before touching your layout
+./install.sh --uninstall         # same, non-interactive
+./install.sh --uninstall --purge # ...and delete the layout too
+```
 
 ### Upgrading from caelestia-forge
 
@@ -104,6 +112,53 @@ rm -f ~/.local/bin/caelestia-forge* ~/.config/systemd/user/caelestia-forge.servi
       ~/.local/share/applications/caelestia-forge.desktop
 rm -rf ~/.config/quickshell/caelestia-forge
 ```
+
+## Sharing a rice
+
+A layout is portable. `export` writes your whole look - every element, its
+position, size, corners, colours, conditions, plus the editor and appearance
+settings - into one plain JSON file:
+
+```sh
+hyprforge export my-rice.hfrice
+hyprforge import someone-elses.hfrice
+hyprforge import theirs.hfrice --layout-only   # keep your own settings
+```
+
+Importing always keeps what you had as `*.json.bak`, so trying someone's rice
+is not a decision you have to commit to. The file is deliberately readable
+JSON rather than an archive: people diff these, paste them into issues, and
+commit them to their own dotfiles. The cached geolocation is *not* included -
+it would tell everyone roughly where you live.
+
+Three are bundled (`hyprforge sample` to list, `hyprforge sample desktop` to
+load one), and they are just `.json` layouts in `samples/` - a pull request
+adding yours is welcome.
+
+### Shipping it in a distro or a dotfiles repo
+
+Packagers: there is a `PKGBUILD` in the repo that installs the shell to
+`/etc/xdg/quickshell/hyprforge`, which is where Quickshell looks for
+system-wide configs. `caelestia-shell` is an `optdepends`, not a dependency.
+
+Dotfiles authors: ship your `.hfrice` and let `install.sh` fetch Hyprforge
+itself, rather than vendoring a copy - your users then get fixes without
+waiting for you, and you only have to keep one JSON file current.
+
+## Credit
+
+Hyprforge is MIT-licensed with one extra condition: **if you publish
+something that uses it, link back to it.** A rice, a dotfiles repo, a distro
+image, a package, a fork - put a visible link in your README, about page, or
+package metadata.
+
+```
+Desktop widgets by Hyprforge - https://github.com/REPO_SLUG
+```
+
+That is the whole of it. No attribution paperwork, no restriction on what you
+build, no permission to ask - just a link where people can actually see it.
+See [LICENSE](LICENSE) for the exact wording.
 
 ## How it is put together
 
@@ -576,5 +631,13 @@ hyprforge widgets    show/hide the desktop layer
 hyprforge reload     re-read layout.json
 hyprforge sample     list bundled layouts
 hyprforge sample starter
+hyprforge export FILE   write a shareable rice pack
+hyprforge import FILE   load one (yours is kept as *.bak)
 hyprforge start|stop the daemon
+hyprforge status     what is running, and what it is keeping awake
+hyprforge fonts ...  apply or revert system-wide typography
+hyprforge uninstall  remove it, optionally keeping your layout
 ```
+
+`hyprforge status` also reports which metric backend is live; for the full
+reading, `qs -c hyprforge ipc call diag backend`.

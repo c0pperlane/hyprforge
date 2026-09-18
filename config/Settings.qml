@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Editor + layer preferences, persisted to ~/.config/caelestia/forge/settings.json.
+// Editor + layer preferences, persisted to ~/.config/hyprforge/settings.json.
 // Everything the floating Canvas panel exposes lives here; the file is watched so
 // hand-edits apply live too.
 Singleton {

@@ -32,6 +32,24 @@ die()  { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -ne 0 ] || die "do not run this as root - Hyprforge installs per-user"
 
+# --- uninstall -------------------------------------------------------------
+if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "-u" ]; then
+    say "removing Hyprforge"
+    systemctl --user disable --now "$NAME.service" >/dev/null 2>&1 || true
+    command -v qs >/dev/null 2>&1 && qs kill -c "$NAME" >/dev/null 2>&1 || true
+    rm -f "$UNITS/$NAME.service" "$BIN/$NAME" "$BIN/$NAME-fonts" \
+          "$DATA_HOME/applications/$NAME.desktop"
+    rm -rf "$DEST"
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+    if [ "${2:-}" = "--purge" ]; then
+        rm -rf "$STATE"
+        say "removed everything, including your layout in $STATE"
+    else
+        say "removed. Your layout is still in $STATE - pass --purge to delete it too"
+    fi
+    exit 0
+fi
+
 # --- dependencies ----------------------------------------------------------
 command -v qs >/dev/null 2>&1 || command -v quickshell >/dev/null 2>&1 \
     || die "Quickshell is required and was not found. Install it first: https://quickshell.org"

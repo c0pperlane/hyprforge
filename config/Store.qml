@@ -7,7 +7,7 @@ import Quickshell.Io
 
 // The document: every placed widget instance, for every monitor.
 //
-// Backed by ~/.config/caelestia/forge/layout.json. Instance props are kept as a
+// Backed by ~/.config/hyprforge/layout.json. Instance props are kept as a
 // JSON *string* role rather than a nested object because QML's ListModel turns
 // nested JS objects into nested ListModels, which then can't round-trip back
 // through JSON.stringify. Stringifying keeps setProperty() atomic and makes the

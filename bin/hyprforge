@@ -62,7 +62,9 @@ case "${1:-edit}" in
         # Swap in one of the bundled layouts, keeping a backup of the current
         # one - this replaces everything you have placed.
         name="${2:-}"
-        dir="$HOME/.config/quickshell/hyprforge/samples"
+        # Packaged installs live in /etc/xdg; installer ones in ~/.config.
+        dir="$HOME/.config/quickshell/$CONFIG/samples"
+        [ -d "$dir" ] || dir="/etc/xdg/quickshell/$CONFIG/samples"
         if [ -z "$name" ]; then
             echo "available samples:"
             for f in "$dir"/*.json; do [ -e "$f" ] && echo "  $(basename "$f" .json)"; done
@@ -70,11 +72,100 @@ case "${1:-edit}" in
         fi
         src="$dir/$name.json"
         [ -f "$src" ] || { echo "hyprforge: no sample called '$name'" >&2; exit 1; }
-        dst="$HOME/.config/caelestia/forge/layout.json"
+        dst="$STATE/layout.json"
         [ -f "$dst" ] && cp "$dst" "$dst.bak"
         cp "$src" "$dst"
         ipc layer reload >/dev/null
         echo "loaded sample '$name' (previous layout saved as layout.json.bak)"
+        ;;
+    export)
+        # A rice pack: the layout, the editor/appearance settings and the
+        # font choices in one file. Deliberately plain JSON with a version
+        # field rather than an archive - people will want to diff these,
+        # paste them in issues, and ship them inside their own dotfiles.
+        out="${2:-}"
+        [ -n "$out" ] || { echo "usage: hyprforge export <file.hfrice>" >&2; exit 1; }
+        [ -f "$STATE/layout.json" ] || { echo "hyprforge: nothing to export yet" >&2; exit 1; }
+        python3 - "$STATE" "$out" <<'PYEOF'
+import json, sys, os, datetime
+state, out = sys.argv[1], sys.argv[2]
+
+def load(name):
+    p = os.path.join(state, name)
+    if not os.path.exists(p):
+        return None
+    with open(p) as f:
+        return json.load(f)
+
+pack = {
+    "hyprforge": 1,
+    "exported": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat(),
+    "layout": load("layout.json"),
+    "settings": load("settings.json"),
+}
+# geo-cache is a cached IP lookup, not part of a look, and shipping it would
+# leak roughly where the author lives.
+with open(out, "w") as f:
+    json.dump(pack, f, indent=2)
+n = len((pack.get("layout") or {}).get("widgets") or [])
+print(f"exported {n} element(s) to {out}")
+PYEOF
+        ;;
+    import)
+        src="${2:-}"
+        [ -n "$src" ] || { echo "usage: hyprforge import <file.hfrice> [--layout-only]" >&2; exit 1; }
+        [ -f "$src" ] || { echo "hyprforge: no such file: $src" >&2; exit 1; }
+        mkdir -p "$STATE"
+        python3 - "$STATE" "$src" "${3:-}" <<'PYEOF'
+import json, sys, os, shutil
+state, src, flag = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(src) as f:
+    pack = json.load(f)
+if not isinstance(pack, dict) or "hyprforge" not in pack:
+    sys.exit("hyprforge: that is not a Hyprforge rice pack")
+if pack["hyprforge"] > 1:
+    sys.exit(f"hyprforge: pack format v{pack['hyprforge']} is newer than this build understands")
+
+def put(name, data):
+    if data is None:
+        return False
+    p = os.path.join(state, name)
+    if os.path.exists(p):
+        shutil.copy2(p, p + ".bak")     # never overwrite a layout without a way back
+    with open(p, "w") as f:
+        json.dump(data, f, indent=2)
+    return True
+
+wrote = []
+if put("layout.json", pack.get("layout")):
+    wrote.append("layout")
+if flag != "--layout-only" and put("settings.json", pack.get("settings")):
+    wrote.append("settings")
+print("imported " + ", ".join(wrote) + " (previous kept as *.json.bak)" if wrote else "nothing to import")
+PYEOF
+        ipc layer reload >/dev/null
+        ;;
+    uninstall)
+        printf 'This removes Hyprforge. Your layout in %s is kept unless you say otherwise.\nContinue? [y/N] ' "$STATE"
+        read -r reply
+        case "$reply" in
+            [yY]*) ;;
+            *) echo "cancelled"; exit 0 ;;
+        esac
+        systemctl --user disable --now "$UNIT" >/dev/null 2>&1
+        qs kill -c "$CONFIG" >/dev/null 2>&1
+        rm -f "$HOME/.config/systemd/user/$UNIT"
+        rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/hyprforge.desktop"
+        rm -rf "$HOME/.config/quickshell/$CONFIG"
+        systemctl --user daemon-reload >/dev/null 2>&1
+        echo "removed the shell, the unit and the launcher entry."
+        printf 'Also delete your layout and settings in %s? [y/N] ' "$STATE"
+        read -r reply2
+        case "$reply2" in
+            [yY]*) rm -rf "$STATE"; echo "deleted $STATE" ;;
+            *) echo "kept $STATE - reinstalling will pick it up again" ;;
+        esac
+        echo "finally, remove the CLI:  rm -f ~/.local/bin/hyprforge ~/.local/bin/hyprforge-fonts"
         ;;
     start)
         if managed; then
@@ -123,6 +214,11 @@ hyprforge [command]
   widgets   show/hide the desktop widget layer
   reload    re-read layout.json from disk
   fonts ...  run the font tool (apply / revert / list / status)
+  export FILE
+            write your layout + settings to a shareable rice pack
+  import FILE [--layout-only]
+            load someone else's rice pack (yours is kept as *.bak)
+  uninstall remove Hyprforge, optionally keeping your layout
   sample [name]
             list bundled layouts, or replace the current one with a sample
             (the layout you had is kept as layout.json.bak)
