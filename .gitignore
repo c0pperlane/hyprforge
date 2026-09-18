@@ -1,0 +1,3 @@
+# Runtime state lives in ~/.config/caelestia/forge, not here.
+*.qmlc
+*.jsc
