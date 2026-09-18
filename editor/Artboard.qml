@@ -39,13 +39,26 @@ Item {
     readonly property bool laidOut: width > 40 && height > 40
     property bool fitted: false
 
+    // Zoom is bounded, not infinite. The floor is derived from the board
+    // rather than fixed: "half the size that fits on screen" means the same
+    // thing on a 1080p panel and a 4K one, where a hardcoded 0.08 would be
+    // unusable on one and pointless on the other. You can always get back
+    // with the fit button.
+    readonly property real fitZoom: root.laidOut ? Math.min((width - 160) / root.tw, (height - 160) / root.th) : 1
+    // Never above 1: the "100%" reset in the toolbar has to stay reachable
+    // even when the board is small and the viewport is huge.
+    readonly property real minZoom: Math.min(1, Math.max(0.05, root.fitZoom * 0.5))
+    readonly property real maxZoom: 6
+
+    function clampZoom(z: real): real {
+        return Math.max(root.minZoom, Math.min(root.maxZoom, z));
+    }
+
     function fit(): void {
         if (!root.laidOut)
             return;
         root.fitted = true;
-        const margin = 80;
-        const z = Math.min((width - margin * 2) / root.tw, (height - margin * 2) / root.th);
-        EditorState.zoom = Math.max(0.05, Math.min(2, z));
+        EditorState.zoom = Math.max(0.05, Math.min(2, root.fitZoom));
         centre();
     }
 
@@ -56,7 +69,7 @@ Item {
 
     function zoomAt(factor: real, px: real, py: real): void {
         const old = EditorState.zoom;
-        const next = Math.max(0.08, Math.min(4, old * factor));
+        const next = root.clampZoom(old * factor);
         if (next === old)
             return;
         // Keep the point under the cursor fixed while zooming.
@@ -574,9 +587,14 @@ Item {
 
     // --- background -------------------------------------------------------
 
+    // The area around the board. Opaque on purpose: this used to be 60% over
+    // the editor's own 72% scrim, which leaves about a ninth of whatever is
+    // behind the editor still showing. At 100% zoom the board covers it and
+    // nobody notices; zoom out and your actual windows appear around the
+    // edges, which reads as the editor being broken rather than translucent.
     Rectangle {
         anchors.fill: parent
-        color: Theme.alpha(Theme.background, 0.6)
+        color: Theme.background
     }
 
     Item {
