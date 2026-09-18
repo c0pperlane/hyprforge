@@ -12,7 +12,7 @@ Press a key, the desktop becomes a canvas. Press it again, it's a desktop.
 Lightweight: a widget that isn't on screen isn't running. Cover the desktop
 and every timer, poll and API call stops until you can see it again.
 
-![The desktop](docs/images/desktop.jpg)
+![The desktop](docs/images/desktop.png)
 
 Drag widgets straight out of the library onto the canvas, drag them around to
 reposition, drag their handles to resize. Everything snaps — to a grid, to
@@ -29,7 +29,7 @@ decide when a widget is on the desktop at all.
 
 Colours follow your wallpaper — same layout, different wall:
 
-![The same layout on a dark wallpaper](docs/images/desktop-dark.jpg)
+![The same layout on a dark wallpaper](docs/images/desktop-dark.png)
 
 ## Requirements
 
