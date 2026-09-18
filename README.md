@@ -10,6 +10,50 @@ SUPER + ALT + D         toggle the editor
 caelestia-forge         same thing, from a terminal
 ```
 
+51 widgets, free positioning with grid / edge / sibling / spacing snapping,
+per-corner radii that join flush neighbours into one panel, visibility
+conditions, style presets, and ref-counted service demand so nothing polls
+while it is off-screen.
+
+## Requirements
+
+Read this part before cloning — the dependency chain is real and a missing
+QML import is a load failure, not a degraded widget.
+
+| | |
+|---|---|
+| **Quickshell** | Required. This is a Quickshell config, not a standalone app. Built against 0.3.1 / Qt 6.11. |
+| **[caelestia-shell](https://github.com/caelestia-dots/shell)** | Required. `Caelestia.Services` and `Caelestia.Components` are imported by six files, including the `Sys` metrics backbone that most widgets read. Without it the config will not start. |
+| **Hyprland** | Required as written. Eight files use `Quickshell.Hyprland` for monitor enumeration, the `reserved` insets behind the usable-area guides, the Workspaces widget, and the screen-based visibility conditions. |
+
+The layer-shell half is generic wlroots and would run on Sway, river or niri;
+the Hyprland queries would not. Porting off Hyprland is the smaller job of the
+two — the `Caelestia.Services` metrics backbone is the larger one.
+
+Colours are the one graceful degradation: `Theme.qml` reads caelestia's
+`~/.local/state/caelestia/scheme.json` but carries a complete palette of its
+own and warns instead of failing when that file is absent.
+
+## Install
+
+```sh
+git clone https://github.com/<you>/caelestia-forge ~/.config/quickshell/caelestia-forge
+install -Dm755 ~/.config/quickshell/caelestia-forge/bin/caelestia-forge ~/.local/bin/caelestia-forge
+install -Dm755 ~/.config/quickshell/caelestia-forge/bin/caelestia-forge-fonts ~/.local/bin/caelestia-forge-fonts
+install -Dm644 ~/.config/quickshell/caelestia-forge/systemd/caelestia-forge.service ~/.config/systemd/user/caelestia-forge.service
+```
+
+Autostart is a systemd user unit rather than a compositor exec: the session is
+uwsm-managed here, so `graphical-session.target` is the thing that actually
+knows when a compositor exists, and systemd supervises and restarts it.
+
+```sh
+systemctl --user enable --now caelestia-forge.service
+```
+
+Your layout lives in `~/.config/caelestia/forge/layout.json`, outside this
+repo, so nothing you place is tracked here.
+
 ## How it is put together
 
 Two halves, one process (`qs -c caelestia-forge`):

@@ -1,0 +1,32 @@
+[Unit]
+Description=Caelestia Forge desktop widget layer
+Documentation=file://%h/.config/quickshell/caelestia-forge/README.md
+# The widgets are layer-shell surfaces, so there has to be a compositor to
+# attach them to. uwsm publishes WAYLAND_DISPLAY into the user environment and
+# reaches graphical-session.target once the session is actually usable.
+After=graphical-session.target
+PartOf=graphical-session.target
+Requisite=graphical-session.target
+
+# Start-rate limiting belongs in [Unit]; systemd silently ignores it in
+# [Service]. Four tries in two minutes: enough to ride out a transient failure
+# at login, few enough that a genuinely broken config stops thrashing instead
+# of respawning forever.
+StartLimitIntervalSec=120
+StartLimitBurst=4
+
+[Service]
+Type=simple
+# No -d: systemd supervises the process itself, so daemonising would just hand
+# it back a pid that exits immediately. -n refuses to start a second instance,
+# which is what stops two daemons drawing every widget twice.
+ExecStart=/usr/bin/qs -c caelestia-forge -n
+Restart=on-failure
+RestartSec=3
+# Quickshell declines to restart itself after a crash to avoid a crash loop;
+# systemd can do it properly, with a limit so a genuinely broken config gives
+# up instead of spinning.
+Slice=app-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target

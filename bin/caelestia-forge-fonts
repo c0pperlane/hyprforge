@@ -1,0 +1,486 @@
+#!/usr/bin/env python3
+"""Apply one font choice across the desktop, and take it back again.
+
+Targets, each independently selectable:
+
+  forge       Caelestia Forge's own widgets   (forge settings.json)
+  shell       the caelestia shell: bar, drawers, launcher  (caelestia/shell.json)
+  fontconfig  the sans-serif/serif/monospace defaults every toolkit resolves
+  gtk         GTK 3/4 apps, via gsettings and settings.ini
+  discord     Equibop/Vesktop, via Vencord's quickCss
+  force       with fontconfig: override the family apps explicitly ask for
+
+Everything is reversible: `revert` restores the backups this script made and
+removes the files it created. Icon and symbol fonts are never remapped - doing
+so is what turns a status bar into a row of rectangles.
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "caelestia"
+
+FORGE_SETTINGS = CONFIG / "caelestia/forge/settings.json"
+SHELL_JSON = CONFIG / "caelestia/shell.json"
+FONTCONF = CONFIG / "fontconfig/conf.d/99-caelestia-forge-fonts.conf"
+GTK_DIRS = [CONFIG / "gtk-3.0", CONFIG / "gtk-4.0"]
+DISCORD_CSS = [
+    CONFIG / "equibop/settings/quickCss.css",
+    CONFIG / "vesktop/settings/quickCss.css",
+]
+STATE_FILE = STATE / "forge-fonts.json"
+
+BACKUP_SUFFIX = ".pre-forge-fonts"
+CSS_BEGIN = "/* caelestia-forge fonts BEGIN - do not edit inside this block */"
+CSS_END = "/* caelestia-forge fonts END */"
+
+# Families that must keep resolving to themselves. An icon font asked for by
+# name and answered with a text font renders as tofu or, worse, as the literal
+# ligature name - which is exactly how a forced-font experiment eats your bar.
+ICON_HINTS = (
+    "symbols", "material", "nerd font", "nerd-font", "awesome",
+    "emoji", "icons", "icon", "octicons", "codicon", "powerline",
+    "weather icons", "devicons",
+)
+
+# Programs left alone by the force rule. Wine/Proton resolve fonts through
+# fontconfig too, and games that ship their own UI font look wrong when it is
+# swapped out from under them.
+PRGNAME_EXCLUDE = ("wine", "wine64", "wineserver", "wineboot", "steam", "proton")
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def installed_families():
+    out = run(["fc-list", ":", "family"]).stdout
+    fams = set()
+    for line in out.splitlines():
+        for part in line.split(","):
+            part = part.strip()
+            if part:
+                fams.add(part)
+    return sorted(fams, key=str.lower)
+
+
+def mono_families():
+    out = run(["fc-list", ":spacing=100", "family"]).stdout
+    fams = set()
+    for line in out.splitlines():
+        for part in line.split(","):
+            part = part.strip()
+            if part:
+                fams.add(part)
+    return sorted(fams, key=str.lower)
+
+
+def icon_families(all_families):
+    return [f for f in all_families if any(h in f.lower() for h in ICON_HINTS)]
+
+
+def backup(path: Path):
+    """Copy a file aside once, so revert has an original to go back to."""
+    path = Path(path)
+    b = Path(str(path) + BACKUP_SUFFIX)
+    if path.exists() and not b.exists():
+        b.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, b)
+    return b
+
+
+def restore(path: Path):
+    path = Path(path)
+    b = Path(str(path) + BACKUP_SUFFIX)
+    if b.exists():
+        shutil.copy2(b, path)
+        b.unlink()
+        return True
+    return False
+
+
+def load_state():
+    try:
+        return json.loads(STATE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def save_state(state):
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+# --------------------------------------------------------------------- forge
+
+def apply_forge(sans, mono, display):
+    FORGE_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    backup(FORGE_SETTINGS)
+    try:
+        cfg = json.loads(FORGE_SETTINGS.read_text())
+    except Exception:
+        cfg = {}
+    fonts = cfg.setdefault("fonts", {})
+    fonts["sans"] = sans or ""
+    fonts["mono"] = mono or ""
+    fonts["display"] = display or ""
+    FORGE_SETTINGS.write_text(json.dumps(cfg, indent=2))
+    return f"forge: {FORGE_SETTINGS}"
+
+
+# --------------------------------------------------------------------- shell
+
+# The shell's schema is appearance.font.<style>.family, plus a bare
+# appearance.font.clock holding a family name. `icon` is deliberately absent:
+# that one is Material Symbols and must stay that way.
+SHELL_STYLES = ("headline", "title", "body", "label")
+
+
+def apply_shell(sans, mono, display):
+    if not SHELL_JSON.exists():
+        return "shell: skipped (no shell.json)"
+    backup(SHELL_JSON)
+    cfg = json.loads(SHELL_JSON.read_text())
+    font = cfg.setdefault("appearance", {}).setdefault("font", {})
+    for style in SHELL_STYLES:
+        font.setdefault(style, {})["family"] = sans
+    if mono:
+        font.setdefault("mono", {})["family"] = mono
+    font["clock"] = display or sans
+    SHELL_JSON.write_text(json.dumps(cfg, indent=2))
+    return f"shell: {SHELL_JSON}"
+
+
+def revert_shell():
+    if restore(SHELL_JSON):
+        return f"shell: restored {SHELL_JSON}"
+    return "shell: nothing to restore"
+
+
+# ---------------------------------------------------------------- fontconfig
+
+def fontconfig_xml(sans, mono, serif, force, all_families, mono_fams=()):
+    def fam(name):
+        return f"<family>{name}</family>"
+
+    lines = [
+        '<?xml version="1.0"?>',
+        '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">',
+        "<!-- Written by caelestia-forge-fonts. Delete this file, or run",
+        "     `caelestia-forge-fonts revert`, to go back to the defaults. -->",
+        "<fontconfig>",
+    ]
+
+    for generic, choice in (("sans-serif", sans), ("system-ui", sans),
+                            ("serif", serif or sans), ("monospace", mono)):
+        if not choice:
+            continue
+        lines += [
+            f"  <alias>",
+            f"    {fam(generic)}",
+            f"    <prefer>{fam(choice)}</prefer>",
+            f"  </alias>",
+        ]
+
+    if force and sans:
+        # Excluded from the override: icon/symbol faces (they would turn into
+        # tofu) and monospaced faces (a code editor asking for Source Code Pro
+        # wants *a* monospace, and handing it a proportional font wrecks every
+        # aligned column). Generic "monospace" requests are still redirected,
+        # by the alias above.
+        icons = sorted(set(icon_families(all_families)) | set(mono_fams),
+                       key=str.lower)
+        lines += [
+            "",
+            "  <!-- Force mode: put the chosen family in front of whatever was",
+            "       actually requested. Icon/symbol fonts and Wine-family",
+            "       processes are excluded by the tests below - without them",
+            "       this rule replaces every glyph in the status bar. -->",
+            '  <match target="pattern">',
+        ]
+        for name in icons:
+            esc = name.replace("&", "&amp;").replace("<", "&lt;")
+            lines.append(
+                f'    <test qual="all" name="family" compare="not_eq"><string>{esc}</string></test>')
+        for prg in PRGNAME_EXCLUDE:
+            lines.append(
+                f'    <test qual="all" name="prgname" compare="not_eq"><string>{prg}</string></test>')
+        lines += [
+            # <edit> takes a <string>, not a <family>: with <family> the rule
+            # parses but silently does nothing, which is a miserable thing to
+            # debug. fc-match is the check that catches it.
+            f'    <edit name="family" mode="prepend" binding="strong"><string>{sans}</string></edit>',
+            "  </match>",
+            "",
+            "  <!-- Monospace requests keep the mono choice rather than the",
+            "       proportional one the rule above would otherwise win. -->",
+            '  <match target="pattern">',
+            '    <test name="spacing" compare="eq"><const>mono</const></test>',
+            f'    <edit name="family" mode="prepend" binding="strong"><string>{mono or sans}</string></edit>',
+            "  </match>",
+        ]
+
+    lines.append("</fontconfig>")
+    return "\n".join(lines) + "\n"
+
+
+def apply_fontconfig(sans, mono, serif, force, all_families):
+    FONTCONF.parent.mkdir(parents=True, exist_ok=True)
+    FONTCONF.write_text(
+        fontconfig_xml(sans, mono, serif, force, all_families, mono_families()))
+    run(["fc-cache", "-f"])
+    return f"fontconfig: {FONTCONF}{' (force)' if force else ''}"
+
+
+def revert_fontconfig():
+    if FONTCONF.exists():
+        FONTCONF.unlink()
+        run(["fc-cache", "-f"])
+        return f"fontconfig: removed {FONTCONF}"
+    return "fontconfig: nothing to remove"
+
+
+# ------------------------------------------------------------------------ gtk
+
+GSETTINGS_KEYS = {
+    "font-name": "sans",
+    "document-font-name": "sans",
+    "monospace-font-name": "mono",
+}
+
+
+def apply_gtk(sans, mono, size, state):
+    msgs = []
+    if shutil.which("gsettings"):
+        saved = state.setdefault("gsettings", {})
+        for key, which in GSETTINGS_KEYS.items():
+            if key not in saved:
+                cur = run(["gsettings", "get", "org.gnome.desktop.interface", key])
+                if cur.returncode == 0:
+                    saved[key] = cur.stdout.strip().strip("'")
+            value = f"{mono if which == 'mono' else sans} {size}"
+            run(["gsettings", "set", "org.gnome.desktop.interface", key, value])
+        msgs.append("gtk: gsettings")
+
+    # Some GTK apps under Wayland read settings.ini directly rather than going
+    # through the settings portal, so write both.
+    for d in GTK_DIRS:
+        ini = d / "settings.ini"
+        d.mkdir(parents=True, exist_ok=True)
+        backup(ini)
+        text = ini.read_text() if ini.exists() else "[Settings]\n"
+        if "[Settings]" not in text:
+            text = "[Settings]\n" + text
+        line = f"gtk-font-name={sans} {size}"
+        if re.search(r"^gtk-font-name=.*$", text, re.M):
+            text = re.sub(r"^gtk-font-name=.*$", line, text, flags=re.M)
+        else:
+            text = text.replace("[Settings]", "[Settings]\n" + line, 1)
+        ini.write_text(text)
+    msgs.append("gtk: settings.ini")
+    return "; ".join(msgs)
+
+
+def revert_gtk(state):
+    msgs = []
+    saved = state.get("gsettings", {})
+    if shutil.which("gsettings"):
+        for key in GSETTINGS_KEYS:
+            if key in saved:
+                run(["gsettings", "set", "org.gnome.desktop.interface", key, saved[key]])
+            else:
+                run(["gsettings", "reset", "org.gnome.desktop.interface", key])
+        msgs.append("gtk: gsettings restored")
+    for d in GTK_DIRS:
+        ini = d / "settings.ini"
+        if restore(ini):
+            msgs.append(f"gtk: restored {ini}")
+        elif ini.exists() and "gtk-font-name" in ini.read_text():
+            text = re.sub(r"^gtk-font-name=.*\n?", "", ini.read_text(), flags=re.M)
+            ini.write_text(text)
+            msgs.append(f"gtk: cleaned {ini}")
+    return "; ".join(msgs) or "gtk: nothing to restore"
+
+
+# -------------------------------------------------------------------- discord
+
+def discord_css(sans, mono):
+    return f"""{CSS_BEGIN}
+/* Discord draws its icons as SVG, so remapping every text node is safe here. */
+* {{
+  font-family: "{sans}", "gg sans", sans-serif !important;
+}}
+code, pre, .monospace, [class*="monospace"], [class*="codeBlock"] {{
+  font-family: "{mono or sans}", monospace !important;
+}}
+{CSS_END}
+"""
+
+
+def strip_block(text):
+    pattern = re.compile(
+        re.escape(CSS_BEGIN) + r".*?" + re.escape(CSS_END) + r"\n?", re.S)
+    return pattern.sub("", text)
+
+
+def apply_discord(sans, mono):
+    touched = []
+    for css in DISCORD_CSS:
+        if not css.parent.exists():
+            continue
+        backup(css)
+        text = css.read_text() if css.exists() else ""
+        text = strip_block(text).rstrip()
+        text = (text + "\n\n" if text else "") + discord_css(sans, mono)
+        css.write_text(text)
+        touched.append(str(css))
+    return "discord: " + (", ".join(touched) if touched else "skipped (no client found)")
+
+
+def revert_discord():
+    touched = []
+    for css in DISCORD_CSS:
+        if css.exists():
+            text = strip_block(css.read_text())
+            css.write_text(text)
+            touched.append(str(css))
+        # Keep the backup as the authority if one exists.
+        restore(css)
+    return "discord: " + (", ".join(touched) if touched else "nothing to clean")
+
+
+# --------------------------------------------------------------------- driver
+
+def cmd_list(args):
+    all_f = installed_families()
+    mono_f = set(mono_families())
+    icons = set(icon_families(all_f))
+    print(json.dumps({
+        "families": all_f,
+        "mono": sorted(mono_f, key=str.lower),
+        "icons": sorted(icons, key=str.lower),
+    }))
+
+
+def cmd_status(args):
+    state = load_state()
+    print(json.dumps({
+        "applied": bool(state.get("applied")),
+        "sans": state.get("sans", ""),
+        "mono": state.get("mono", ""),
+        "display": state.get("display", ""),
+        "size": state.get("size", 11),
+        "force": bool(state.get("force")),
+        "targets": state.get("targets", []),
+        "fontconfig": FONTCONF.exists(),
+    }, indent=2))
+
+
+def cmd_apply(args):
+    targets = [t.strip() for t in args.targets.split(",") if t.strip()]
+    all_f = installed_families()
+
+    if args.sans and args.sans not in all_f:
+        print(f"warning: '{args.sans}' is not an installed family", file=sys.stderr)
+
+    state = load_state()
+    msgs = []
+
+    if "forge" in targets:
+        msgs.append(apply_forge(args.sans, args.mono, args.display))
+    if "shell" in targets:
+        msgs.append(apply_shell(args.sans, args.mono, args.display))
+    if "fontconfig" in targets:
+        msgs.append(apply_fontconfig(args.sans, args.mono, args.serif, args.force, all_f))
+    if "gtk" in targets:
+        msgs.append(apply_gtk(args.sans, args.mono, args.size, state))
+    if "discord" in targets:
+        msgs.append(apply_discord(args.sans, args.mono))
+
+    state.update({
+        "applied": True,
+        "sans": args.sans,
+        "mono": args.mono,
+        "display": args.display,
+        "size": args.size,
+        "force": bool(args.force),
+        "targets": targets,
+    })
+    save_state(state)
+
+    for m in msgs:
+        print(m)
+    print("\nRunning apps pick this up on restart; the shell and Forge apply live.")
+
+
+def cmd_revert(args):
+    state = load_state()
+    applied = set(state.get("targets", []))
+
+    print(revert_shell())
+    print(revert_fontconfig())
+
+    # gsettings talks to the running dconf service, which no amount of
+    # XDG_CONFIG_HOME juggling sandboxes - so only touch it if this script is
+    # the one that changed it.
+    if "gtk" in applied or state.get("gsettings"):
+        print(revert_gtk(state))
+    else:
+        print("gtk: not applied by this tool, left alone")
+
+    print(revert_discord())
+
+    # Forge's own fonts go back to "unset", which means its bundled default.
+    if FORGE_SETTINGS.exists():
+        try:
+            cfg = json.loads(FORGE_SETTINGS.read_text())
+            cfg.setdefault("fonts", {}).update({"sans": "", "mono": "", "display": ""})
+            FORGE_SETTINGS.write_text(json.dumps(cfg, indent=2))
+            print(f"forge: reset {FORGE_SETTINGS}")
+        except Exception as e:
+            print(f"forge: could not reset ({e})", file=sys.stderr)
+
+    state.update({"applied": False, "force": False})
+    save_state(state)
+    print("\nReverted. Restart running apps to see it everywhere.")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    a = sub.add_parser("apply", help="apply a font across the selected targets")
+    a.add_argument("--sans", default="", help="UI / body family")
+    a.add_argument("--mono", default="", help="monospace family")
+    a.add_argument("--display", default="", help="display family (clock, headings)")
+    a.add_argument("--serif", default="", help="serif family (defaults to --sans)")
+    a.add_argument("--size", type=int, default=11, help="point size for GTK")
+    a.add_argument("--force", action="store_true",
+                   help="fontconfig: override families apps explicitly request")
+    a.add_argument("--targets", default="forge,shell,fontconfig,gtk,discord")
+    a.set_defaults(func=cmd_apply)
+
+    r = sub.add_parser("revert", help="undo everything this script changed")
+    r.set_defaults(func=cmd_revert)
+
+    l = sub.add_parser("list", help="installed families, as JSON")
+    l.set_defaults(func=cmd_list)
+
+    s = sub.add_parser("status", help="what is currently applied")
+    s.set_defaults(func=cmd_status)
+
+    args = ap.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

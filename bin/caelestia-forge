@@ -1,0 +1,128 @@
+#!/bin/sh
+# Caelestia Forge - desktop designer for the caelestia dots.
+#
+# The widget layer runs as a Quickshell daemon; the editor is an overlay it
+# opens on request. This script is what the start-menu entry and the keybind
+# both call: it talks to a running daemon over IPC, and starts one first if
+# there isn't one yet.
+
+CONFIG=caelestia-forge
+UNIT=caelestia-forge.service
+
+# When the systemd unit is installed it owns the daemon's lifecycle: starting
+# or stopping behind its back leaves systemd's idea of the service wrong, and a
+# plain kill can trip its restart logic.
+managed() {
+    systemctl --user cat "$UNIT" >/dev/null 2>&1
+}
+
+ipc() {
+    qs -c "$CONFIG" ipc call "$@" 2>/dev/null
+}
+
+start_daemon() {
+    # -n is the single-instance guard: without it a second launch happily
+    # starts another daemon, and every widget is then drawn twice by two
+    # layer surfaces stacked on the same output. The caelestia shell itself
+    # is started the same way.
+    qs -c "$CONFIG" -n -d >/dev/null 2>&1
+    # Wait for the IPC socket rather than sleeping a fixed amount.
+    i=0
+    while [ "$i" -lt 50 ]; do
+        ipc editor isOpen >/dev/null 2>&1 && return 0
+        i=$((i + 1))
+        sleep 0.1
+    done
+    return 1
+}
+
+case "${1:-edit}" in
+    edit|open)   ipc editor open   >/dev/null || { start_daemon && ipc editor open >/dev/null; } ;;
+    toggle)      ipc editor toggle >/dev/null || { start_daemon && ipc editor open >/dev/null; } ;;
+    close)       ipc editor close  >/dev/null ;;
+    widgets)     ipc layer toggle  >/dev/null || { start_daemon && ipc layer toggle >/dev/null; } ;;
+    reload)      ipc layer reload  >/dev/null ;;
+    fonts)
+        # Everything after "fonts" goes straight to the font tool.
+        shift
+        exec caelestia-forge-fonts "$@"
+        ;;
+    sample)
+        # Swap in one of the bundled layouts, keeping a backup of the current
+        # one - this replaces everything you have placed.
+        name="${2:-}"
+        dir="$HOME/.config/quickshell/caelestia-forge/samples"
+        if [ -z "$name" ]; then
+            echo "available samples:"
+            for f in "$dir"/*.json; do [ -e "$f" ] && echo "  $(basename "$f" .json)"; done
+            exit 0
+        fi
+        src="$dir/$name.json"
+        [ -f "$src" ] || { echo "caelestia-forge: no sample called '$name'" >&2; exit 1; }
+        dst="$HOME/.config/caelestia/forge/layout.json"
+        [ -f "$dst" ] && cp "$dst" "$dst.bak"
+        cp "$src" "$dst"
+        ipc layer reload >/dev/null
+        echo "loaded sample '$name' (previous layout saved as layout.json.bak)"
+        ;;
+    start)
+        if managed; then
+            systemctl --user start "$UNIT"
+        else
+            ipc editor isOpen >/dev/null 2>&1 || start_daemon
+        fi
+        ;;
+    stop)
+        # Quickshell's own instance registry, not a cmdline grep: a daemonised
+        # instance rewrites its argv, so matching on /proc/PID/cmdline silently
+        # finds nothing and leaves the daemon running.
+        if managed; then
+            systemctl --user stop "$UNIT"
+        else
+            qs kill -c "$CONFIG" >/dev/null 2>&1
+        fi
+        ;;
+    restart)
+        if managed; then
+            systemctl --user restart "$UNIT"
+        else
+            qs kill -c "$CONFIG" >/dev/null 2>&1
+            sleep 1
+            start_daemon
+        fi
+        ;;
+    status)
+        if managed; then
+            echo "unit: $(systemctl --user is-enabled $UNIT 2>/dev/null), $(systemctl --user is-active $UNIT 2>/dev/null)"
+        fi
+        if qs list --all 2>/dev/null | grep -q "$CONFIG/shell.qml"; then
+            echo "running"
+            ipc diag demand
+        else
+            echo "not running"
+        fi
+        ;;
+    -h|--help|help)
+        cat <<'USAGE'
+caelestia-forge [command]
+
+  edit      open the designer (default; starts the daemon if needed)
+  toggle    open/close the designer
+  close     close the designer
+  widgets   show/hide the desktop widget layer
+  reload    re-read layout.json from disk
+  fonts ...  run the font tool (apply / revert / list / status)
+  sample [name]
+            list bundled layouts, or replace the current one with a sample
+            (the layout you had is kept as layout.json.bak)
+  start     start the widget daemon without opening the designer
+  stop      stop the daemon (removes the widgets until next login)
+  restart   stop and start it again
+  status    whether it is running, and which services it is keeping awake
+USAGE
+        ;;
+    *)
+        echo "caelestia-forge: unknown command '$1' (try --help)" >&2
+        exit 2
+        ;;
+esac
