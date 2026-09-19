@@ -27,6 +27,14 @@ Singleton {
     readonly property int minOverlap: 8
 
     property var map: ({})
+    // Which of a widget's four SIDES - not corners - has a neighbour flush
+    // against it. A corner squares only once a neighbour reaches that corner;
+    // an edge here is true the moment a neighbour overlaps it by minOverlap
+    // at all, whether or not it happens to reach either end. Shadows read
+    // this instead of the corner map: what a shadow needs to know is "is
+    // there something immediately past this edge for me to fall onto",
+    // which a squared corner only sometimes answers.
+    property var edgeMap: ({})
 
     readonly property var noCorners: ({
             tl: false,
@@ -35,8 +43,19 @@ Singleton {
             br: false
         })
 
+    readonly property var noEdges: ({
+            top: false,
+            right: false,
+            bottom: false,
+            left: false
+        })
+
     function cornersFor(id: string): var {
         return root.map[id] ?? root.noCorners;
+    }
+
+    function edgesFor(id: string): var {
+        return root.edgeMap[id] ?? root.noEdges;
     }
 
     function recompute(): void {
@@ -57,6 +76,7 @@ Singleton {
         }
 
         const out = ({});
+        const edgeOut = ({});
         const tol = root.tolerance;
         const minOv = root.minOverlap;
 
@@ -67,13 +87,15 @@ Singleton {
                 bl: false,
                 br: false
             };
-            if (!a.attach) {
-                out[a.id] = c;
-                continue;
-            }
+            const e = {
+                top: false,
+                right: false,
+                bottom: false,
+                left: false
+            };
 
             for (const b of items) {
-                if (b === a || b.screen !== a.screen || !b.attach)
+                if (b === a || b.screen !== a.screen)
                     continue;
 
                 const vOverlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
@@ -81,38 +103,58 @@ Singleton {
 
                 // b immediately to the left of a
                 if (vOverlap >= minOv && Math.abs(b.x + b.w - a.x) <= tol) {
-                    if (b.y <= a.y + tol)
-                        c.tl = true;
-                    if (b.y + b.h >= a.y + a.h - tol)
-                        c.bl = true;
+                    // Edges are permissive on purpose - true for any
+                    // neighbour, corner-joinable or not, the moment it
+                    // genuinely overlaps this side. A shadow should not fall
+                    // on whatever is next door regardless of whether that
+                    // thing happens to be a surface eligible to visually
+                    // join with this one; corners stay narrower, below.
+                    e.left = true;
+                    if (a.attach && b.attach) {
+                        if (b.y <= a.y + tol)
+                            c.tl = true;
+                        if (b.y + b.h >= a.y + a.h - tol)
+                            c.bl = true;
+                    }
                 }
                 // b immediately to the right
                 if (vOverlap >= minOv && Math.abs(b.x - (a.x + a.w)) <= tol) {
-                    if (b.y <= a.y + tol)
-                        c.tr = true;
-                    if (b.y + b.h >= a.y + a.h - tol)
-                        c.br = true;
+                    e.right = true;
+                    if (a.attach && b.attach) {
+                        if (b.y <= a.y + tol)
+                            c.tr = true;
+                        if (b.y + b.h >= a.y + a.h - tol)
+                            c.br = true;
+                    }
                 }
                 // b immediately above
                 if (hOverlap >= minOv && Math.abs(b.y + b.h - a.y) <= tol) {
-                    if (b.x <= a.x + tol)
-                        c.tl = true;
-                    if (b.x + b.w >= a.x + a.w - tol)
-                        c.tr = true;
+                    e.top = true;
+                    if (a.attach && b.attach) {
+                        if (b.x <= a.x + tol)
+                            c.tl = true;
+                        if (b.x + b.w >= a.x + a.w - tol)
+                            c.tr = true;
+                    }
                 }
                 // b immediately below
                 if (hOverlap >= minOv && Math.abs(b.y - (a.y + a.h)) <= tol) {
-                    if (b.x <= a.x + tol)
-                        c.bl = true;
-                    if (b.x + b.w >= a.x + a.w - tol)
-                        c.br = true;
+                    e.bottom = true;
+                    if (a.attach && b.attach) {
+                        if (b.x <= a.x + tol)
+                            c.bl = true;
+                        if (b.x + b.w >= a.x + a.w - tol)
+                            c.br = true;
+                    }
                 }
             }
 
             out[a.id] = c;
+            edgeOut[a.id] = e;
         }
 
         root.map = out;
+        root.edgeMap = edgeOut;
     }
 
     function attachEnabled(w: var): bool {

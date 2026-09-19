@@ -199,13 +199,44 @@ Item {
         return maxY;
     }
 
+    // Which of this widget's own sides has a neighbour immediately past it -
+    // corner-joined or not, the shadow does not care which; it only cares
+    // whether there is something there to fall onto. Where a corner IS
+    // joined, Attach already squares it (cornerTL and siblings, above) -
+    // there is no curve there to round out, so zero margin on that side
+    // costs nothing.
+    readonly property var attachEdges: Attach.edgesFor(root.wid)
+
+    // How far past its own box the shadow is allowed to go on a side with
+    // nothing there. This has to be real room for MultiEffect's own working
+    // canvas, not just an outer clip put around a tightly-sized layer: tried
+    // that first, and it changed nothing, because autoPaddingEnabled below
+    // constrains the blur to whatever shadowHost itself declares - a clip
+    // wrapped around an already-too-small layer just clips an already-cut
+    // result harder. Confirmed side by side, identical corner both ways,
+    // before rewriting this the second time. Sized to comfortably clear the
+    // largest corner radius on offer (80px) and the blur/distance/spread
+    // actually in play, so the shadow gets to finish fading out on its own
+    // before anything cuts it off.
+    readonly property real shadowMargin: {
+        const blur = root.num("shadowBlur", 0.9) * 60;
+        const dist = root.shadowIsGlow ? 0 : root.shadowDistance;
+        const spread = root.shadowIsGlow ? root.width * root.num("shadowSpread", 0) * 0.3 : 0;
+        return Math.max(28, blur + dist + spread);
+    }
+
+    readonly property real marginLeft: root.attachEdges.left ? 0 : root.shadowMargin
+    readonly property real marginTop: root.attachEdges.top ? 0 : root.shadowMargin
+    readonly property real marginRight: root.attachEdges.right ? 0 : root.shadowMargin
+    readonly property real marginBottom: root.attachEdges.bottom ? 0 : root.shadowMargin
+
     Item {
         id: shadowHost
 
-        anchors.left: parent.left
-        anchors.top: parent.top
-        width: Math.max(root.width, inner.x + root.contentRight)
-        height: Math.max(root.height, inner.y + root.contentBottom)
+        x: -root.marginLeft
+        y: -root.marginTop
+        width: root.marginLeft + Math.max(root.width, root.pad + root.contentRight) + root.marginRight
+        height: root.marginTop + Math.max(root.height, root.pad + root.contentBottom) + root.marginBottom
 
         layer.enabled: root.shadowOn
         layer.effect: MultiEffect {
@@ -215,20 +246,21 @@ Item {
             shadowHorizontalOffset: root.shadowDx
             shadowVerticalOffset: root.shadowDy
             shadowScale: root.shadowScale
-            // Off, deliberately. MultiEffect's default is to auto-expand its
-            // own render target so blur/offset never gets clipped - which
-            // sounds right until two widgets sit close together, as most of
-            // this app's own widgets do: the blur then bleeds straight past
-            // shadowHost's own bounds and onto whatever is a few pixels below
-            // it, no matter how that neighbour is arranged. Confirmed side by
-            // side before shipping: the same shadow, same blur, with this on
-            // versus off, next to a plain rectangle a modest gap below - on,
-            // the rectangle's top edge visibly darkens; off, it stays clean.
-            // The one thing this does cost is a widget whose own shadow
-            // settings are pushed hard enough (large Distance, large Blur)
-            // to want more room than its own box - it gets clipped at
-            // shadowHost's edge rather than spilling further, which for a
-            // shadow (unlike content) is the point, not a limitation.
+            // Off, deliberately - not a `clip: true` on some wrapper, an
+            // actual property of the effect. MultiEffect's default is to
+            // auto-expand its own render target so blur/offset never gets
+            // clipped, which sounds right for one isolated card and is
+            // wrong the instant a second widget sits close by, as most of
+            // this app's own widgets do: the blur bleeds straight past
+            // shadowHost's declared bounds and onto whatever is a few
+            // pixels below it, regardless of how that neighbour is
+            // arranged. Confirmed side by side before shipping: same
+            // shadow, same blur, this on versus off, next to a plain
+            // rectangle a modest gap below - on, its top edge visibly
+            // darkens; off, it stays clean. shadowHost's own asymmetric
+            // size above (margin on open sides, zero on attached ones) is
+            // what gives the blur real room to still look complete
+            // everywhere that isn't touching a neighbour.
             autoPaddingEnabled: false
 
             Behavior on shadowHorizontalOffset {
@@ -254,8 +286,8 @@ Item {
         }
 
         Surface {
-            x: 0
-            y: 0
+            x: root.marginLeft
+            y: root.marginTop
             width: root.width
             height: root.height
             mode: root.p.bg ?? "none"
@@ -273,8 +305,8 @@ Item {
         Item {
             id: inner
 
-            x: root.pad
-            y: root.pad
+            x: root.marginLeft + root.pad
+            y: root.marginTop + root.pad
             width: root.width - root.pad * 2
             height: root.height - root.pad * 2
         }
