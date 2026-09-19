@@ -159,6 +159,26 @@ meeting at a single corner point do not count as joined — the shared edge has 
 actually overlap. Per-widget, *Join to touching neighbours* turns it off.
 
 
+## Shadows and glows
+
+Every element's **Surface** section (in the Inspector) has a **Shadow**
+dropdown: None, Drop, or Glow.
+
+- **Drop** is a directional shadow at any angle — **Angle** turns it around the
+  full 360°, **Distance** sets how far it falls, **Blur** how soft the edge is.
+  90° is straight down.
+- **Glow** is the same blurred, coloured silhouette with the direction forced
+  to zero, so it sits evenly behind every edge instead of being cast one way.
+  **Spread** grows it past the element's own edges, which is what actually
+  reads as a halo rather than a soft-edged rectangle. Colour is normally an
+  accent rather than the near-black a drop shadow uses — that's what makes it
+  read as a glow rather than a shadow with nowhere to fall.
+
+Both are cast from the *whole element* — its card, if it has one, and
+whatever it draws on top of that — not from the card alone. That distinction
+matters for anything with **Surface: None**: a bare clock or a number with no
+card behind it can still carry a shadow or a glow, cast from its own text.
+
 ## Styles
 
 The **Styles** palette (`T`) holds presets for the shared Surface/Colour props.

@@ -148,11 +148,89 @@ Singleton {
             def: "outlineVariant",
             group: "Surface"
         },
+        // Shadow / glow. Two looks out of one effect (see components/Surface.qml):
+        // a directional drop shadow you can rotate to any angle, or an
+        // undirected glow - offset forced to zero regardless of the angle/
+        // distance sliders, so switching modes never means re-tuning them.
+        // Every default below reproduces the old fixed-angle, fixed-blur
+        // `shadow: bool` exactly, so a layout saved before this existed keeps
+        // its shadow pixel-for-pixel (Store.qml migrates the old key).
         {
-            key: "shadow",
-            label: "Drop shadow",
-            type: "bool",
-            def: false,
+            key: "shadowMode",
+            label: "Shadow",
+            type: "enum",
+            def: "none",
+            group: "Surface",
+            options: [
+                {
+                    value: "none",
+                    label: "None"
+                },
+                {
+                    value: "drop",
+                    label: "Drop"
+                },
+                {
+                    value: "glow",
+                    label: "Glow"
+                }
+            ]
+        },
+        {
+            key: "shadowAngle",
+            label: "Angle (°)",
+            type: "real",
+            def: 90,
+            min: 0,
+            max: 360,
+            step: 1,
+            group: "Surface"
+        },
+        {
+            key: "shadowDistance",
+            label: "Distance (px)",
+            type: "real",
+            def: 6,
+            min: 0,
+            max: 48,
+            step: 1,
+            group: "Surface"
+        },
+        {
+            key: "shadowBlur",
+            label: "Blur",
+            type: "real",
+            def: 0.9,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            group: "Surface"
+        },
+        {
+            key: "shadowSpread",
+            label: "Spread",
+            type: "real",
+            def: 0,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            group: "Surface"
+        },
+        {
+            key: "shadowColour",
+            label: "Shadow colour",
+            type: "colour",
+            def: "shadow",
+            group: "Surface"
+        },
+        {
+            key: "shadowOpacity",
+            label: "Shadow opacity",
+            type: "real",
+            def: 0.45,
+            min: 0,
+            max: 1,
+            step: 0.01,
             group: "Surface"
         },
         {

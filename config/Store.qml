@@ -481,12 +481,28 @@ Singleton {
         }, null, 2);
     }
 
+    // Shadows/glows replaced a plain `shadow: bool` with `shadowMode` plus
+    // angle, distance, blur, spread, colour and opacity - and every one of
+    // those defaults was chosen to equal the old fixed-angle, fixed-blur
+    // shadow's actual constants, so a widget that only ever set `shadow: true`
+    // keeps rendering identically without needing the rest migrated too.
+    function migrateProps(props: var): var {
+        if (!props || props.shadow === undefined)
+            return props;
+        const p = Object.assign({}, props);
+        if (p.shadow === true && p.shadowMode === undefined)
+            p.shadowMode = "drop";
+        delete p.shadow;
+        return p;
+    }
+
     function deserialise(text: string): void {
         model.clear();
         if (!text || !text.trim())
             return;
         const data = JSON.parse(text);
         let repaired = 0;
+        let migrated = 0;
         for (const w of data.widgets ?? []) {
             const def = Registry.def(w.type);
             if (!def)
@@ -496,6 +512,11 @@ Singleton {
             const height = root.sane(w.h, def.size.h, 8);
             if (width !== w.w || height !== w.h)
                 repaired++;
+
+            const rawProps = w.props ?? {};
+            const props = root.migrateProps(rawProps);
+            if (props !== rawProps)
+                migrated++;
 
             model.append({
                 id: w.id ?? uid(),
@@ -512,7 +533,7 @@ Singleton {
                 locked: w.locked ?? false,
                 hidden: w.hidden ?? false,
                 cond: root.normaliseCond(w.cond),
-                props: JSON.stringify(Object.assign(Registry.defaults(w.type), w.props ?? {}))
+                props: JSON.stringify(Object.assign(Registry.defaults(w.type), props))
             });
         }
         if (repaired > 0) {
@@ -521,6 +542,8 @@ Singleton {
             // broken values stay on disk waiting to confuse the next reader.
             root.repairedOnLoad = true;
         }
+        if (migrated > 0)
+            root.repairedOnLoad = true; // same "persist it once" mechanism
     }
 
     function pushUndo(): void {

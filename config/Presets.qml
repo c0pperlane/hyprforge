@@ -31,7 +31,7 @@ Singleton {
                 padding: 20,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -53,7 +53,7 @@ Singleton {
                 padding: 16,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -75,7 +75,7 @@ Singleton {
                 padding: 20,
                 border: true,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -97,7 +97,7 @@ Singleton {
                 padding: 20,
                 border: true,
                 borderColour: "outlineVariant",
-                shadow: true,
+                shadowMode: "drop",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -119,7 +119,7 @@ Singleton {
                 padding: 20,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: true,
+                shadowMode: "drop",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -141,7 +141,7 @@ Singleton {
                 padding: 18,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -163,7 +163,7 @@ Singleton {
                 padding: 18,
                 border: true,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -185,7 +185,7 @@ Singleton {
                 padding: 20,
                 border: false,
                 borderColour: "primary",
-                shadow: false,
+                shadowMode: "none",
                 accent: "fgPrimaryContainer",
                 fg: "fgPrimaryContainer",
                 muted: "fgPrimaryContainer"
@@ -207,7 +207,7 @@ Singleton {
                 padding: 16,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"
@@ -229,7 +229,7 @@ Singleton {
                 padding: 0,
                 border: false,
                 borderColour: "outlineVariant",
-                shadow: false,
+                shadowMode: "none",
                 accent: "primary",
                 fg: "fgSurface",
                 muted: "fgSurfaceVariant"

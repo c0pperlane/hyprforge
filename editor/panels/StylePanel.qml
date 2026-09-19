@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import qs.components
 import qs.config
 import qs.editor
@@ -70,17 +71,38 @@ FloatingPanel {
 
                         // Live preview: the same Surface component the widgets
                         // use, fed the preset's own props - so what you see is
-                        // literally what gets applied.
-                        Surface {
+                        // literally what gets applied. The shadow itself is
+                        // applied here rather than inside Surface, matching
+                        // WidgetBase: it needs to be layered around the thing
+                        // that is meant to cast it, and here that is this
+                        // preview swatch, not a component of its own.
+                        Item {
+                            id: previewShadow
+
                             anchors.fill: parent
                             anchors.bottomMargin: 22
-                            mode: card.pp.bg
-                            colour: Theme.resolve(card.pp.bgColour, Theme.surfaceContainer)
-                            fillOpacity: card.pp.bgOpacity
-                            radius: Math.min(card.pp.radius, 26)
-                            border: card.pp.border
-                            borderColour: Theme.resolve(card.pp.borderColour, Theme.outlineVariant)
-                            shadow: card.pp.shadow
+
+                            readonly property bool glow: card.pp.shadowMode === "glow"
+
+                            layer.enabled: (card.pp.shadowMode ?? "none") !== "none"
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: Theme.alpha(Theme.resolve(card.pp.shadowColour, Theme.shadow), card.pp.shadowOpacity ?? 0.45)
+                                shadowBlur: card.pp.shadowBlur ?? 0.9
+                                shadowHorizontalOffset: previewShadow.glow ? 0 : Math.cos((card.pp.shadowAngle ?? 90) * Math.PI / 180) * (card.pp.shadowDistance ?? 6)
+                                shadowVerticalOffset: previewShadow.glow ? 0 : Math.sin((card.pp.shadowAngle ?? 90) * Math.PI / 180) * (card.pp.shadowDistance ?? 6)
+                                shadowScale: 1 + (previewShadow.glow ? (card.pp.shadowSpread ?? 0) * 0.6 : 0)
+                            }
+
+                            Surface {
+                                anchors.fill: parent
+                                mode: card.pp.bg
+                                colour: Theme.resolve(card.pp.bgColour, Theme.surfaceContainer)
+                                fillOpacity: card.pp.bgOpacity
+                                radius: Math.min(card.pp.radius, 26)
+                                border: card.pp.border
+                                borderColour: Theme.resolve(card.pp.borderColour, Theme.outlineVariant)
+                            }
                         }
 
                         Column {

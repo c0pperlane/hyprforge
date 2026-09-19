@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.config
 
 // The background every widget can opt into: none / tonal / solid / glass /
@@ -24,9 +23,17 @@ Item {
     }
     property bool border: false
     property color borderColour: Theme.outlineVariant
-    property bool shadow: false
 
     readonly property bool hasFill: root.mode !== "none"
+
+    // Shadow/glow is not done here any more - see WidgetBase.qml. It used to
+    // be applied to `fill` alone, which meant it only ever worked for a
+    // widget with an actual card behind it: `fill` is invisible in "none"
+    // mode, and MultiEffect derives a shadow from what a layered item
+    // actually renders, not from its geometry - an invisible source casts an
+    // invisible shadow. WidgetBase shadows the whole widget instead (this
+    // Surface plus its content together), which is the only way a bare piece
+    // of text can have one.
 
     Rectangle {
         id: fill
@@ -77,15 +84,6 @@ Item {
                     color: "transparent"
                 }
             }
-        }
-
-        layer.enabled: root.shadow
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.alpha("#000000", 0.45)
-            shadowBlur: 0.9
-            shadowVerticalOffset: 6
-            shadowScale: 1
         }
 
         Behavior on color {

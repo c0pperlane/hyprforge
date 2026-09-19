@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.config
 
 // Base class for every catalogue widget.
@@ -144,6 +145,61 @@ Item {
         return root.str(key, "").split("\n").map(s => s.trim()).filter(s => s.length > 0);
     }
 
+    // --- shadow / glow -------------------------------------------------------
+    //
+    // Applied to `root` itself - Surface's fill plus whatever the widget
+    // actually draws, together - rather than to the card fill alone. A widget
+    // with `bg: "none"` has no fill for a shadow to be cast from (MultiEffect
+    // derives one from what a layered item renders, not from its geometry),
+    // and that is exactly the case a bare clock or a stat number most wants
+    // one. Every default reproduces the old fixed-angle `shadow: bool`
+    // exactly, so a layout saved before this existed renders unchanged
+    // (Store.qml migrates the old key).
+    readonly property string shadowMode: root.str("shadowMode", "none")
+    readonly property bool shadowOn: root.shadowMode !== "none"
+    readonly property bool shadowIsGlow: root.shadowMode === "glow"
+    readonly property real shadowAngle: root.num("shadowAngle", 90)
+    readonly property real shadowDistance: root.num("shadowDistance", 6)
+    // Screen-space angle: 0deg points right, 90deg down - "90, straight down"
+    // is both trig-correct and the old shadow's actual direction.
+    readonly property real shadowDx: root.shadowIsGlow ? 0 : Math.cos(root.shadowAngle * Math.PI / 180) * root.shadowDistance
+    readonly property real shadowDy: root.shadowIsGlow ? 0 : Math.sin(root.shadowAngle * Math.PI / 180) * root.shadowDistance
+    // 0..1 spread reads as "how much bigger than the shape" - only glow
+    // actually wants to grow past its own edges; a drop shadow that did the
+    // same would look like a second, larger copy of the widget peeking out.
+    readonly property real shadowScale: 1 + (root.shadowIsGlow ? root.num("shadowSpread", 0) * 0.6 : 0)
+
+    layer.enabled: root.shadowOn
+    layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: Qt.alpha(root.colour("shadowColour", Theme.shadow), root.num("shadowOpacity", 0.45))
+        shadowBlur: root.num("shadowBlur", 0.9)
+        shadowHorizontalOffset: root.shadowDx
+        shadowVerticalOffset: root.shadowDy
+        shadowScale: root.shadowScale
+
+        Behavior on shadowHorizontalOffset {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        Behavior on shadowVerticalOffset {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        Behavior on shadowScale {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
     Surface {
         anchors.fill: parent
         mode: root.p.bg ?? "none"
@@ -156,7 +212,6 @@ Item {
         bottomRightRadius: root.cornerBR
         border: root.flag("border", false)
         borderColour: root.colour("borderColour", Theme.outlineVariant)
-        shadow: root.flag("shadow", false)
     }
 
     Item {

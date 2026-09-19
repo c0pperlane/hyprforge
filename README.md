@@ -113,7 +113,7 @@ to fill in. Just a link where people can see it. ([LICENSE](LICENSE))
 ## Docs
 
 - [How it's built](docs/architecture.md) — the two halves, multi-monitor, and why off-screen widgets cost nothing
-- [The editor](docs/editor.md) — snapping, visibility conditions, corners, styles, typography
+- [The editor](docs/editor.md) — snapping, visibility conditions, corners, shadows, styles, typography
 - [Widgets](docs/widgets.md) — what ships, and how to write another
 - [caelestia-shell](docs/caelestia.md) — what changes with and without it
 
