@@ -215,6 +215,21 @@ Item {
             shadowHorizontalOffset: root.shadowDx
             shadowVerticalOffset: root.shadowDy
             shadowScale: root.shadowScale
+            // Off, deliberately. MultiEffect's default is to auto-expand its
+            // own render target so blur/offset never gets clipped - which
+            // sounds right until two widgets sit close together, as most of
+            // this app's own widgets do: the blur then bleeds straight past
+            // shadowHost's own bounds and onto whatever is a few pixels below
+            // it, no matter how that neighbour is arranged. Confirmed side by
+            // side before shipping: the same shadow, same blur, with this on
+            // versus off, next to a plain rectangle a modest gap below - on,
+            // the rectangle's top edge visibly darkens; off, it stays clean.
+            // The one thing this does cost is a widget whose own shadow
+            // settings are pushed hard enough (large Distance, large Blur)
+            // to want more room than its own box - it gets clipped at
+            // shadowHost's edge rather than spilling further, which for a
+            // shadow (unlike content) is the point, not a limitation.
+            autoPaddingEnabled: false
 
             Behavior on shadowHorizontalOffset {
                 NumberAnimation {

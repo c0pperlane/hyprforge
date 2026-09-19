@@ -187,6 +187,17 @@ shadow reads fainter than a block letter's at identical blur and opacity.
 Not a fault in either element; **Blur** down or **Opacity** up reads more
 clearly on thin strokes if that's not the effect you want.
 
+A shadow never bleeds onto another element, joined or just placed close by.
+Qt's shadow effect auto-expands its own canvas by default so a big blur is
+never clipped — which is right for one isolated card, and wrong the moment
+a second widget sits a few pixels below it, since the same auto-expansion
+happily paints across the gap and onto whatever is there. Forge turns that
+off, so a shadow is bounded by its own element's box (plus room for
+anything that widget legitimately draws past its own edges, like a hero
+clock's date line — that was never the part meant to be contained). Push
+**Distance** or **Blur** further than an element's neighbours have room
+for and the shadow is what gives, not the layout.
+
 **Apply to every widget**, at the bottom of the Shadow controls, copies
 just those seven values — mode, angle, distance, blur, spread, colour,
 opacity — onto every other unlocked element on the same screen. Nothing

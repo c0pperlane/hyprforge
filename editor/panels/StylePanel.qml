@@ -92,6 +92,10 @@ FloatingPanel {
                                 shadowHorizontalOffset: previewShadow.glow ? 0 : Math.cos((card.pp.shadowAngle ?? 90) * Math.PI / 180) * (card.pp.shadowDistance ?? 6)
                                 shadowVerticalOffset: previewShadow.glow ? 0 : Math.sin((card.pp.shadowAngle ?? 90) * Math.PI / 180) * (card.pp.shadowDistance ?? 6)
                                 shadowScale: 1 + (previewShadow.glow ? (card.pp.shadowSpread ?? 0) * 0.6 : 0)
+                                // See the matching comment in WidgetBase.qml -
+                                // without this, a preset preview's own shadow
+                                // bleeds onto the next card in the grid.
+                                autoPaddingEnabled: false
                             }
 
                             Surface {
