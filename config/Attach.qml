@@ -87,6 +87,21 @@ Singleton {
                 bl: false,
                 br: false
             };
+            // Permissive, separately from corners: true for any neighbour at
+            // all on that side, corner-joinable or not, the instant it
+            // genuinely overlaps by minOverlap. This is what a shadow reads -
+            // it does not care whether the thing next to it happens to be a
+            // surface eligible to visually join, only whether something is
+            // there. Corners stay narrower, exactly as they always were: a
+            // corner squares only when a neighbour's own edge reaches that
+            // specific corner, not merely whenever the side it is on has any
+            // neighbour touching it somewhere. A first pass here tried
+            // squaring both ends of a touching side unconditionally - a
+            // narrower card centred on a wider one then squared the wide
+            // one's corners too, even the shoulders nothing was actually
+            // under - and that was wrong the other way. Confirmed against
+            // the original behaviour, corner by corner, before settling
+            // back on it.
             const e = {
                 top: false,
                 right: false,
@@ -100,17 +115,12 @@ Singleton {
 
                 const vOverlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
                 const hOverlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+                const eligible = a.attach && b.attach;
 
                 // b immediately to the left of a
                 if (vOverlap >= minOv && Math.abs(b.x + b.w - a.x) <= tol) {
-                    // Edges are permissive on purpose - true for any
-                    // neighbour, corner-joinable or not, the moment it
-                    // genuinely overlaps this side. A shadow should not fall
-                    // on whatever is next door regardless of whether that
-                    // thing happens to be a surface eligible to visually
-                    // join with this one; corners stay narrower, below.
                     e.left = true;
-                    if (a.attach && b.attach) {
+                    if (eligible) {
                         if (b.y <= a.y + tol)
                             c.tl = true;
                         if (b.y + b.h >= a.y + a.h - tol)
@@ -120,7 +130,7 @@ Singleton {
                 // b immediately to the right
                 if (vOverlap >= minOv && Math.abs(b.x - (a.x + a.w)) <= tol) {
                     e.right = true;
-                    if (a.attach && b.attach) {
+                    if (eligible) {
                         if (b.y <= a.y + tol)
                             c.tr = true;
                         if (b.y + b.h >= a.y + a.h - tol)
@@ -130,7 +140,7 @@ Singleton {
                 // b immediately above
                 if (hOverlap >= minOv && Math.abs(b.y + b.h - a.y) <= tol) {
                     e.top = true;
-                    if (a.attach && b.attach) {
+                    if (eligible) {
                         if (b.x <= a.x + tol)
                             c.tl = true;
                         if (b.x + b.w >= a.x + a.w - tol)
@@ -140,7 +150,7 @@ Singleton {
                 // b immediately below
                 if (hOverlap >= minOv && Math.abs(b.y - (a.y + a.h)) <= tol) {
                     e.bottom = true;
-                    if (a.attach && b.attach) {
+                    if (eligible) {
                         if (b.x <= a.x + tol)
                             c.bl = true;
                         if (b.x + b.w >= a.x + a.w - tol)
