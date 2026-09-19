@@ -41,6 +41,12 @@ FloatingPanel {
             WeatherSvc.relocate();
             EditorState.status("Re-detecting location…");
             break;
+        case "shadow.applyAll":
+            if (root.wid) {
+                const n = Store.applyShadowToScreen(root.wid, EditorState.target);
+                EditorState.status(n > 0 ? `Applied this shadow to ${n} widget${n === 1 ? "" : "s"}` : "Nothing else to apply it to");
+            }
+            break;
         }
     }
 

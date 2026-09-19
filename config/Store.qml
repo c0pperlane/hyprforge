@@ -379,6 +379,37 @@ Singleton {
         touch();
     }
 
+    // The seven keys a shadow/glow is made of - kept in one place so
+    // "apply this shadow everywhere" and the schema that edits it can't
+    // silently drift apart.
+    readonly property var shadowKeys: ["shadowMode", "shadowAngle", "shadowDistance", "shadowBlur", "shadowSpread", "shadowColour", "shadowOpacity"]
+
+    // Copies one widget's shadow/glow onto every unlocked widget on the same
+    // screen - everything else about them (surface, colour, radius, padding)
+    // is untouched. Screen-scoped rather than everywhere, matching how
+    // Presets.applyToScreen already draws that line: a shadow tuned for one
+    // monitor's wallpaper is not necessarily right for another's.
+    function applyShadowToScreen(sourceId: string, screen: string): int {
+        const src = root.props(sourceId);
+        const patch = ({});
+        for (const k of root.shadowKeys)
+            if (src[k] !== undefined)
+                patch[k] = src[k];
+        if (!Object.keys(patch).length)
+            return 0;
+
+        root.pushUndo();
+        let n = 0;
+        for (let i = 0; i < model.count; i++) {
+            const w = model.get(i);
+            if (w.screen !== screen || w.id === sourceId || w.locked)
+                continue;
+            root.setProps(w.id, Object.assign(root.props(w.id), patch));
+            n++;
+        }
+        return n;
+    }
+
     function resetProps(id: string): void {
         const w = get(id);
         if (!w)

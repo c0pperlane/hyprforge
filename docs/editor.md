@@ -179,6 +179,21 @@ whatever it draws on top of that — not from the card alone. That distinction
 matters for anything with **Surface: None**: a bare clock or a number with no
 card behind it can still carry a shadow or a glow, cast from its own text.
 
+A blur radius is a fixed number of pixels regardless of what it's blurring,
+so it dilutes a lot more on a thin, small line of text than a thick, huge
+one — a subtitle under a hero clock will always show a fainter shadow than
+the clock itself at the same settings, the same way a pencil line's drop
+shadow reads fainter than a block letter's at identical blur and opacity.
+Not a fault in either element; **Blur** down or **Opacity** up reads more
+clearly on thin strokes if that's not the effect you want.
+
+**Apply to every widget**, at the bottom of the Shadow controls, copies
+just those seven values — mode, angle, distance, blur, spread, colour,
+opacity — onto every other unlocked element on the same screen. Nothing
+else about them changes: not surface, not colour, not radius. For a whole
+look, including the card underneath, that's the Styles palette below,
+not this.
+
 ## Styles
 
 The **Styles** palette (`T`) holds presets for the shared Surface/Colour props.

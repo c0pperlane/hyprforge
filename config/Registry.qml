@@ -233,6 +233,20 @@ Singleton {
             step: 0.01,
             group: "Surface"
         },
+        // A row, not a per-widget value - it copies the seven props above
+        // onto every other widget on the screen and leaves nothing behind
+        // of its own. "def: null" keeps it out of every saved layout.json;
+        // Registry.defaults() skips "action" rows for exactly that reason.
+        {
+            key: "__applyShadow",
+            label: "This shadow",
+            type: "action",
+            action: "shadow.applyAll",
+            button: "Apply to every widget",
+            icon: "published_with_changes",
+            def: null,
+            group: "Surface"
+        },
         {
             key: "accent",
             label: "Accent",
@@ -3025,12 +3039,16 @@ Singleton {
 
     function defaults(type: string): var {
         const out = ({});
+        // "action" rows are buttons, not stored state - true of a common prop
+        // exactly as much as a widget-specific one, which only the
+        // widget-specific loop checked for until a common one (shadow's
+        // "apply to every widget") existed to expose the gap.
         for (const p of commonProps)
-            out[p.key] = p.def;
+            if (p.type !== "action")
+                out[p.key] = p.def;
         const d = def(type);
         if (d)
             for (const p of d.props) {
-                // "action" rows are buttons, not stored state.
                 if (p.type !== "action")
                     out[p.key] = p.def;
             }

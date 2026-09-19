@@ -169,55 +169,99 @@ Item {
     // same would look like a second, larger copy of the widget peeking out.
     readonly property real shadowScale: 1 + (root.shadowIsGlow ? root.num("shadowSpread", 0) * 0.6 : 0)
 
-    layer.enabled: root.shadowOn
-    layer.effect: MultiEffect {
-        shadowEnabled: true
-        shadowColor: Qt.alpha(root.colour("shadowColour", Theme.shadow), root.num("shadowOpacity", 0.45))
-        shadowBlur: root.num("shadowBlur", 0.9)
-        shadowHorizontalOffset: root.shadowDx
-        shadowVerticalOffset: root.shadowDy
-        shadowScale: root.shadowScale
-
-        Behavior on shadowHorizontalOffset {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on shadowVerticalOffset {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on shadowScale {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutCubic
-            }
-        }
+    // layer.enabled captures a fixed-size texture - exactly `width` x
+    // `height`, nothing more - so it clips anything a widget draws past its
+    // own box. Several widgets (HeroClock's date line among them) rely on
+    // Qt's default no-clip behaviour to let a line of text run past their
+    // nominal height, which was harmless until there was a layer here to cut
+    // it off. Tested and confirmed with a standalone reproduction before
+    // this comment was written: the clip is real, and Item.childrenRect
+    // does not see through `inner` to find it, because childrenRect only
+    // ever looks at its own direct children's declared geometry, not
+    // theirs. shadowHost below measures one level past `inner` explicitly
+    // instead - `inner`'s own direct children, which is exactly as deep as
+    // `default property alias content: inner.data` ever nests a widget's
+    // top-level item - and is sized to whichever is larger, its own nominal
+    // box or that measurement. `inner` itself is untouched: nothing about
+    // how a widget anchors or centres its content inside it changes.
+    readonly property real contentRight: {
+        let maxX = 0;
+        for (const c of inner.children)
+            if (c.visible !== false)
+                maxX = Math.max(maxX, c.x + c.width);
+        return maxX;
     }
-
-    Surface {
-        anchors.fill: parent
-        mode: root.p.bg ?? "none"
-        colour: root.colour("bgColour", Theme.surfaceContainer)
-        fillOpacity: root.num("bgOpacity", 0.85)
-        radius: root.num("radius", 22)
-        topLeftRadius: root.cornerTL
-        topRightRadius: root.cornerTR
-        bottomLeftRadius: root.cornerBL
-        bottomRightRadius: root.cornerBR
-        border: root.flag("border", false)
-        borderColour: root.colour("borderColour", Theme.outlineVariant)
+    readonly property real contentBottom: {
+        let maxY = 0;
+        for (const c of inner.children)
+            if (c.visible !== false)
+                maxY = Math.max(maxY, c.y + c.height);
+        return maxY;
     }
 
     Item {
-        id: inner
+        id: shadowHost
 
-        anchors.fill: parent
-        anchors.margins: root.pad
+        anchors.left: parent.left
+        anchors.top: parent.top
+        width: Math.max(root.width, inner.x + root.contentRight)
+        height: Math.max(root.height, inner.y + root.contentBottom)
+
+        layer.enabled: root.shadowOn
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Qt.alpha(root.colour("shadowColour", Theme.shadow), root.num("shadowOpacity", 0.45))
+            shadowBlur: root.num("shadowBlur", 0.9)
+            shadowHorizontalOffset: root.shadowDx
+            shadowVerticalOffset: root.shadowDy
+            shadowScale: root.shadowScale
+
+            Behavior on shadowHorizontalOffset {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Behavior on shadowVerticalOffset {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Behavior on shadowScale {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        Surface {
+            x: 0
+            y: 0
+            width: root.width
+            height: root.height
+            mode: root.p.bg ?? "none"
+            colour: root.colour("bgColour", Theme.surfaceContainer)
+            fillOpacity: root.num("bgOpacity", 0.85)
+            radius: root.num("radius", 22)
+            topLeftRadius: root.cornerTL
+            topRightRadius: root.cornerTR
+            bottomLeftRadius: root.cornerBL
+            bottomRightRadius: root.cornerBR
+            border: root.flag("border", false)
+            borderColour: root.colour("borderColour", Theme.outlineVariant)
+        }
+
+        Item {
+            id: inner
+
+            x: root.pad
+            y: root.pad
+            width: root.width - root.pad * 2
+            height: root.height - root.pad * 2
+        }
     }
 }
