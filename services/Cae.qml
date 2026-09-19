@@ -32,6 +32,7 @@ Singleton {
     readonly property var audio: audioLoader.item
     readonly property var words: wordsLoader.item
     readonly property var extras: extrasLoader.item
+    readonly property var playerConfig: playerConfigLoader.item
 
     Component.onCompleted: {
         if (!root.available)
@@ -64,5 +65,12 @@ Singleton {
 
         active: root.available
         source: "cae/Extras.qml"
+    }
+
+    Loader {
+        id: playerConfigLoader
+
+        active: root.available
+        source: "cae/PlayerConfig.qml"
     }
 }

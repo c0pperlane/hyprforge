@@ -5,17 +5,44 @@ import Quickshell
 import Quickshell.Services.Mpris
 import qs.config
 
-// Active MPRIS player, chosen the way people expect: whatever is actually
-// playing wins, otherwise the last thing that was.
+// Active MPRIS player.
+//
+// On a caelestia system this must pick the exact same player caelestia's own
+// topbar does, not just something reasonable: Words.qml drives the shell's
+// lyrics fetch off whichever player is "active" here, and the shell's
+// dashboard keys its own lyrics cache off whichever player it thinks is
+// active. Two different rules can each be defensible on their own and still
+// disagree - "whatever's playing" vs. caelestia's configured default/first
+// player - whenever more than one MPRIS source is present (a paused Spotify
+// next to a playing browser tab, say), and a disagreement here means Forge
+// fetches and looks up lyrics for a different track than the one caelestia
+// resolved, which reads as "lyrics just don't work" for no visible reason.
+// So: mirror caelestia's own rule when it's installed, and fall back to
+// "whatever's playing" - the sane default for a bare Hyprland box - when it
+// is not.
 Singleton {
     id: root
 
     readonly property list<MprisPlayer> players: Mpris.players.values
     property MprisPlayer manual: null
 
+    function identityOf(p: MprisPlayer): string {
+        if (!p)
+            return "";
+        const cfg = Cae.playerConfig;
+        if (!cfg)
+            return p.identity;
+        const alias = cfg.playerAliases.find(a => a.from === p.identity);
+        return alias?.to ?? p.identity;
+    }
+
     readonly property MprisPlayer active: {
         if (root.manual && root.players.includes(root.manual))
             return root.manual;
+        if (Cae.available && Cae.playerConfig) {
+            const def = Cae.playerConfig.defaultPlayer;
+            return root.players.find(p => root.identityOf(p) === def) ?? root.players[0] ?? null;
+        }
         return root.players.find(p => p.isPlaying) ?? root.players.find(p => p.playbackState === MprisPlaybackState.Paused) ?? root.players[0] ?? null;
     }
 
